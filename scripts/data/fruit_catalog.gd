@@ -6,12 +6,28 @@ extends RefCounted
 var fruits: Array[FruitDefinition] = []
 var _shape_cache: Dictionary = {}
 var _physics_material: PhysicsMaterial
+var _sticky_physics_material: PhysicsMaterial
+var _concrete_physics_material: PhysicsMaterial
+var _charged_physics_material: PhysicsMaterial
 
 
 func _init() -> void:
 	_physics_material = PhysicsMaterial.new()
 	_physics_material.friction = 0.35
 	_physics_material.bounce = 0.14
+
+	_sticky_physics_material = PhysicsMaterial.new()
+	_sticky_physics_material.friction = 1.0
+	_sticky_physics_material.bounce = 0.0
+
+	_concrete_physics_material = PhysicsMaterial.new()
+	_concrete_physics_material.friction = 0.8
+	_concrete_physics_material.bounce = 0.0
+
+	_charged_physics_material = PhysicsMaterial.new()
+	_charged_physics_material.friction = 0.05
+	_charged_physics_material.bounce = 0.92
+
 	_populate_defaults()
 
 
@@ -115,6 +131,18 @@ func get_shape(level: int) -> CircleShape2D:
 
 func get_physics_material() -> PhysicsMaterial:
 	return _physics_material
+
+
+func get_physics_material_for_property(prop: FruitProperty.Type) -> PhysicsMaterial:
+	match prop:
+		FruitProperty.Type.STICKY:
+			return _sticky_physics_material
+		FruitProperty.Type.CONCRETE:
+			return _concrete_physics_material
+		FruitProperty.Type.CHARGED:
+			return _charged_physics_material
+		_:
+			return _physics_material
 
 
 func has_next_level(level: int) -> bool:

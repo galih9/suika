@@ -25,8 +25,9 @@ func ensure_walls_built() -> void:
 
 	var walls := StaticBody2D.new()
 	walls.name = "JarWalls"
+	walls.add_to_group(&"jar_wall")
 	walls.collision_layer = 2
-	walls.collision_mask = 1
+	walls.collision_mask = 5
 
 	var wall_mat := PhysicsMaterial.new()
 	wall_mat.friction = 0.4
@@ -52,15 +53,24 @@ func ensure_walls_built() -> void:
 	right_col.position = Vector2(INNER_HALF_WIDTH + WALL_THICKNESS * 0.5, wall_center_y)
 	walls.add_child(right_col)
 
-	# Floor
+	add_child(walls)
+
+	# Separate floor body so Sticky & Concrete can distinguish JarFloor from JarWalls
+	var floor_body := StaticBody2D.new()
+	floor_body.name = "JarFloor"
+	floor_body.add_to_group(&"jar_floor")
+	floor_body.collision_layer = 2
+	floor_body.collision_mask = 5
+	floor_body.physics_material_override = wall_mat
+
 	var floor_col := CollisionShape2D.new()
 	var floor_shape := RectangleShape2D.new()
 	floor_shape.size = Vector2(INNER_HALF_WIDTH * 2.0 + WALL_THICKNESS * 2.0, WALL_THICKNESS)
 	floor_col.shape = floor_shape
 	floor_col.position = Vector2(0.0, FLOOR_Y + WALL_THICKNESS * 0.5)
-	walls.add_child(floor_col)
+	floor_body.add_child(floor_col)
 
-	add_child(walls)
+	add_child(floor_body)
 
 
 func clamp_drop_x(x: float, radius: float) -> float:

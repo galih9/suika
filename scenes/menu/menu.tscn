@@ -69,8 +69,8 @@ layout_mode = 2
 [node name="BestLabel" type="Label" parent="SafeMargin/Center/MainColumn/BestWrap/BestCard"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 22
-text = "BEST SCORE: 0"
+theme_override_font_sizes/font_size = 20
+text = "NORMAL BEST: 0   |   FRENZY BEST: 0"
 horizontal_alignment = 1
 
 [node name="EvoCard" type="PanelContainer" parent="SafeMargin/Center/MainColumn"]
@@ -95,11 +95,45 @@ theme_override_constants/h_separation = 8
 theme_override_constants/v_separation = 12
 alignment = 1
 
-[node name="PlayButton" type="Button" parent="SafeMargin/Center/MainColumn"]
+[node name="FrenzyLegendCard" type="PanelContainer" parent="SafeMargin/Center/MainColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="FrenzyVBox" type="VBoxContainer" parent="SafeMargin/Center/MainColumn/FrenzyLegendCard"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="FrenzyTitle" type="Label" parent="SafeMargin/Center/MainColumn/FrenzyLegendCard/FrenzyVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "FRENZY PROPERTIES (SCORE ON MERGE ONLY)"
+horizontal_alignment = 1
+
+[node name="FrenzyFlow" type="HFlowContainer" parent="SafeMargin/Center/MainColumn/FrenzyLegendCard/FrenzyVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/h_separation = 10
+theme_override_constants/v_separation = 8
+alignment = 1
+
+[node name="ModeButtonsRow" type="HBoxContainer" parent="SafeMargin/Center/MainColumn"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="PlayButton" type="Button" parent="SafeMargin/Center/MainColumn/ModeButtonsRow"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 78)
 layout_mode = 2
-text = "PLAY"
+size_flags_horizontal = 3
+text = "NORMAL MODE"
+
+[node name="FrenzyButton" type="Button" parent="SafeMargin/Center/MainColumn/ModeButtonsRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 78)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "FRENZY MODE"
 
 [node name="SecondaryRow" type="HBoxContainer" parent="SafeMargin/Center/MainColumn"]
 layout_mode = 2

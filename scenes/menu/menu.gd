@@ -9,7 +9,11 @@ extends Control
 @onready var _evo_card: PanelContainer = %EvoCard
 @onready var _evo_title: Label = %EvoTitle
 @onready var _evo_flow: HFlowContainer = %EvoFlow
+@onready var _frenzy_legend_card: PanelContainer = %FrenzyLegendCard
+@onready var _frenzy_title: Label = %FrenzyTitle
+@onready var _frenzy_flow: HFlowContainer = %FrenzyFlow
 @onready var _play_button: Button = %PlayButton
+@onready var _frenzy_button: Button = %FrenzyButton
 @onready var _sound_button: Button = %SoundButton
 @onready var _quit_button: Button = %QuitButton
 
@@ -18,6 +22,7 @@ func _ready() -> void:
 	FruitRegistry.ensure_textures_ready()
 	_apply_styles()
 	_populate_evolution_chart()
+	_populate_frenzy_legend()
 	_refresh_high_score()
 	_refresh_sound_button()
 
@@ -25,6 +30,7 @@ func _ready() -> void:
 		_quit_button.visible = false
 
 	_play_button.pressed.connect(_on_play_pressed)
+	_frenzy_button.pressed.connect(_on_frenzy_pressed)
 	_sound_button.pressed.connect(_on_sound_pressed)
 	_quit_button.pressed.connect(_on_quit_pressed)
 
@@ -45,7 +51,14 @@ func _apply_styles() -> void:
 	)
 	_evo_title.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
 
-	UITheme.style_primary_button(_play_button, 22, 30)
+	_frenzy_legend_card.add_theme_stylebox_override(
+		"panel",
+		UITheme.make_panel_style(UITheme.CARD_WHITE, UITheme.CARD_BORDER, 22, 2, 18, 14)
+	)
+	_frenzy_title.add_theme_color_override("font_color", UITheme.ACCENT_CORAL)
+
+	UITheme.style_primary_button(_play_button, 22, 24)
+	UITheme.style_accent_button(_frenzy_button, 22, 24)
 	UITheme.style_secondary_button(_sound_button, 18, 22)
 	UITheme.style_secondary_button(_quit_button, 18, 22)
 
@@ -93,8 +106,42 @@ func _populate_evolution_chart() -> void:
 			_evo_flow.add_child(arrow)
 
 
+func _populate_frenzy_legend() -> void:
+	for child in _frenzy_flow.get_children():
+		child.queue_free()
+
+	var entries := [
+		{"prop": FruitProperty.Type.STICKY, "hint": "Sticks 1st touch"},
+		{"prop": FruitProperty.Type.BOMB, "hint": "10s fuse blast"},
+		{"prop": FruitProperty.Type.NUCLEAR, "hint": "Merge blasts"},
+		{"prop": FruitProperty.Type.CONCRETE, "hint": "Crushes to floor"},
+		{"prop": FruitProperty.Type.CHARGED, "hint": "Super bouncy"},
+	]
+	for entry in entries:
+		var prop: FruitProperty.Type = entry["prop"]
+		var col := FruitProperty.get_color(prop)
+		var accent := FruitProperty.get_accent_color(prop)
+
+		var pill := PanelContainer.new()
+		pill.add_theme_stylebox_override(
+			"panel",
+			UITheme.make_panel_style(col.lightened(0.75), accent, 12, 2, 10, 5)
+		)
+
+		var lbl := Label.new()
+		lbl.text = "%s: %s" % [FruitProperty.get_display_name(prop), entry["hint"]]
+		lbl.add_theme_font_size_override("font_size", 13)
+		lbl.add_theme_color_override("font_color", UITheme.TEXT_DARK)
+		pill.add_child(lbl)
+
+		_frenzy_flow.add_child(pill)
+
+
 func _refresh_high_score() -> void:
-	_best_label.text = "BEST SCORE: %d" % SaveManager.get_high_score()
+	_best_label.text = "NORMAL BEST: %d   |   FRENZY BEST: %d" % [
+		SaveManager.get_high_score(GameMode.Mode.NORMAL),
+		SaveManager.get_high_score(GameMode.Mode.FRENZY),
+	]
 
 
 func _refresh_sound_button() -> void:
@@ -104,7 +151,14 @@ func _refresh_sound_button() -> void:
 
 func _on_play_pressed() -> void:
 	AudioManager.play_click()
-	SceneManager.goto_scene_with_loading(SceneManager.GAME_SCENE, "Preparing Jar...")
+	SceneManager.selected_mode = GameMode.Mode.NORMAL
+	SceneManager.goto_scene_with_loading(SceneManager.GAME_SCENE, "Preparing Normal Mode...")
+
+
+func _on_frenzy_pressed() -> void:
+	AudioManager.play_click()
+	SceneManager.selected_mode = GameMode.Mode.FRENZY
+	SceneManager.goto_scene_with_loading(SceneManager.GAME_SCENE, "Preparing Frenzy Mode...")
 
 
 func _on_sound_pressed() -> void:

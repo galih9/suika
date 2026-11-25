@@ -15,8 +15,10 @@ var _is_pointer_down: bool = false
 var _queued_drop: bool = false
 var _queued_drop_x: float = 0.0
 var _held_radius: float = 20.0
+var _held_property: FruitProperty.Type = FruitProperty.Type.NONE
 var _show_guide: bool = false
 var _sprite: Sprite2D
+var _overlay: FruitPropertyOverlay
 
 
 func _init() -> void:
@@ -24,6 +26,9 @@ func _init() -> void:
 	_sprite.centered = true
 	_sprite.visible = false
 	add_child(_sprite)
+
+	_overlay = FruitPropertyOverlay.new()
+	add_child(_overlay)
 
 
 func reset() -> void:
@@ -34,15 +39,22 @@ func reset() -> void:
 	_queued_drop = false
 	_queued_drop_x = 0.0
 	_held_radius = 20.0
+	_held_property = FruitProperty.Type.NONE
 	_show_guide = false
 	_sprite.visible = false
+	_overlay.reset()
 	queue_redraw()
 
 
-func show_held_fruit(level: int, jar: JarContainer = null) -> void:
+func show_held_fruit(
+	level: int,
+	jar: JarContainer = null,
+	prop: FruitProperty.Type = FruitProperty.Type.NONE
+) -> void:
 	var def := FruitRegistry.catalog.get_fruit(level)
 	var tex := FruitRegistry.textures.get_texture(level)
 	_held_radius = def.radius if def != null else 20.0
+	_held_property = prop
 	var s := FruitRegistry.textures.get_sprite_scale_for_radius(_held_radius)
 	_sprite.texture = tex
 	_sprite.scale = Vector2(s, s)
@@ -57,6 +69,8 @@ func show_held_fruit(level: int, jar: JarContainer = null) -> void:
 	_show_guide = true
 	_sprite.visible = true
 	_sprite.position = Vector2(drop_x, JarContainer.DROP_Y)
+	_overlay.configure(prop, _held_radius, true)
+	_overlay.position = _sprite.position
 	queue_redraw()
 
 
@@ -64,6 +78,7 @@ func hide_guide() -> void:
 	has_held_fruit = false
 	_show_guide = false
 	_sprite.visible = false
+	_overlay.reset()
 	queue_redraw()
 
 
@@ -77,7 +92,12 @@ func start_cooldown() -> void:
 	hide_guide()
 
 
-func tick(delta: float, next_held_level: int, jar: JarContainer) -> void:
+func tick(
+	delta: float,
+	next_held_level: int,
+	jar: JarContainer,
+	next_held_prop: FruitProperty.Type = FruitProperty.Type.NONE
+) -> void:
 	if cooldown_timer <= 0.0:
 		return
 
@@ -90,11 +110,12 @@ func tick(delta: float, next_held_level: int, jar: JarContainer) -> void:
 		var def := FruitRegistry.catalog.get_fruit(next_held_level)
 		var next_radius := def.radius if def != null else 20.0
 		_held_radius = next_radius
+		_held_property = next_held_prop
 		drop_x = jar.clamp_drop_x(_queued_drop_x, next_radius)
 		has_held_fruit = true
 		drop_requested.emit(drop_x)
 	else:
-		show_held_fruit(next_held_level, jar)
+		show_held_fruit(next_held_level, jar, next_held_prop)
 
 
 func handle_input(event: InputEvent, board: Node2D, jar: JarContainer, can_interact: bool) -> void:
@@ -134,6 +155,7 @@ func _update_aim_x(local_x: float, jar: JarContainer) -> void:
 	drop_x = jar.clamp_drop_x(local_x, _held_radius)
 	if has_held_fruit and _show_guide:
 		_sprite.position = Vector2(drop_x, JarContainer.DROP_Y)
+		_overlay.position = _sprite.position
 		queue_redraw()
 
 
@@ -142,6 +164,9 @@ func _draw() -> void:
 		return
 	var y := JarContainer.DROP_Y + maxf(_held_radius, 20.0)
 	var col := Color(0.45, 0.30, 0.18, 0.24)
+	if _held_property != FruitProperty.Type.NONE:
+		var prop_col := FruitProperty.get_color(_held_property)
+		col = Color(prop_col.r, prop_col.g, prop_col.b, 0.38)
 	while y < JarContainer.FLOOR_Y - 12.0:
 		var seg_end := minf(y + 10.0, JarContainer.FLOOR_Y - 12.0)
 		draw_line(Vector2(drop_x, y), Vector2(drop_x, seg_end), col, 2.5, true)

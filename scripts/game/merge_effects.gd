@@ -45,6 +45,76 @@ func spawn_merge_burst(pos: Vector2, radius: float, color: Color, is_max_bonus: 
 	queue_redraw()
 
 
+func spawn_explosion_burst(pos: Vector2, blast_radius: float, is_nuclear: bool) -> void:
+	var outer_color := FruitProperty.get_color(FruitProperty.Type.NUCLEAR) if is_nuclear else Color("#FF7043")
+	var inner_color := Color("#FFF176") if is_nuclear else Color("#FFCA28")
+
+	_ring_positions.append(pos)
+	_ring_start_radii.append(blast_radius * 0.18)
+	_ring_end_radii.append(blast_radius * 1.1)
+	_ring_ages.append(0.0)
+	_ring_durations.append(0.42 if is_nuclear else 0.30)
+	_ring_colors.append(outer_color)
+
+	_ring_positions.append(pos)
+	_ring_start_radii.append(blast_radius * 0.08)
+	_ring_end_radii.append(blast_radius * 0.72)
+	_ring_ages.append(0.0)
+	_ring_durations.append(0.28 if is_nuclear else 0.20)
+	_ring_colors.append(inner_color)
+
+	var droplet_count := 22 if is_nuclear else 14
+	for i in range(droplet_count):
+		var angle := (float(i) / float(droplet_count)) * TAU + randf_range(-0.15, 0.15)
+		var speed := randf_range(blast_radius * 1.6, blast_radius * 3.1)
+		_drop_positions.append(pos + Vector2(cos(angle), sin(angle)) * (blast_radius * 0.12))
+		_drop_velocities.append(Vector2(cos(angle), sin(angle)) * speed)
+		_drop_radii.append(clampf(blast_radius * 0.055, 4.5, 11.0))
+		_drop_ages.append(0.0)
+		_drop_durations.append(randf_range(0.26, 0.44))
+		_drop_colors.append(outer_color if i % 2 == 0 else inner_color)
+
+	set_process(true)
+	queue_redraw()
+
+
+func spawn_crush_burst(pos: Vector2, radius: float, color: Color) -> void:
+	_ring_positions.append(pos)
+	_ring_start_radii.append(radius * 0.4)
+	_ring_end_radii.append(radius * 1.35)
+	_ring_ages.append(0.0)
+	_ring_durations.append(0.22)
+	_ring_colors.append(Color("#90A4AE"))
+
+	for i in range(8):
+		var angle := (float(i) / 8.0) * TAU + randf_range(-0.2, 0.2)
+		var speed := randf_range(radius * 2.0, radius * 4.0)
+		_drop_positions.append(pos)
+		_drop_velocities.append(Vector2(cos(angle), sin(angle)) * speed)
+		_drop_radii.append(clampf(radius * 0.13, 3.5, 8.5))
+		_drop_ages.append(0.0)
+		_drop_durations.append(randf_range(0.20, 0.34))
+		_drop_colors.append(color if i % 2 == 0 else Color("#B0BEC5"))
+
+	set_process(true)
+	queue_redraw()
+
+
+func spawn_property_splash(pos: Vector2, radius: float, color: Color, droplet_count: int = 6) -> void:
+	for i in range(droplet_count):
+		var angle := (float(i) / float(maxi(droplet_count, 1))) * TAU + randf_range(-0.25, 0.25)
+		var speed := randf_range(radius * 1.5, radius * 3.0)
+		_drop_positions.append(pos + Vector2(cos(angle), sin(angle)) * (radius * 0.5))
+		_drop_velocities.append(Vector2(cos(angle), sin(angle)) * speed)
+		_drop_radii.append(clampf(radius * 0.11, 3.0, 7.0))
+		_drop_ages.append(0.0)
+		_drop_durations.append(randf_range(0.18, 0.30))
+		_drop_colors.append(color)
+
+	set_process(true)
+	queue_redraw()
+
+
 func clear_all() -> void:
 	_ring_positions.clear()
 	_ring_start_radii.clear()

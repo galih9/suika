@@ -24,6 +24,12 @@ func _run_all() -> void:
 	await _test_continuous_merge_sweep_and_clusters()
 	await _test_dropper_input_and_no_teleport()
 	_test_danger_detector_rules()
+	await _test_modes_and_save_manager()
+	await _test_frenzy_sticky_property()
+	await _test_frenzy_bomb_property()
+	await _test_frenzy_nuclear_property()
+	await _test_frenzy_concrete_property()
+	await _test_frenzy_charged_property()
 
 	await get_tree().process_frame
 	await get_tree().process_frame
@@ -465,3 +471,306 @@ func _test_danger_detector_rules() -> void:
 	f_rec.free()
 	f_rest.free()
 	detector.queue_free()
+
+
+func _spawn_test_fruit(
+	board: GameBoard,
+	lvl: int,
+	pos: Vector2,
+	prop: FruitProperty.Type = FruitProperty.Type.NONE,
+	lin_vel: Vector2 = Vector2.ZERO
+) -> Fruit:
+	var catalog := FruitRegistry.catalog
+	var def := catalog.get_fruit(lvl)
+	var f := board.fruit_pool.acquire()
+	f.configure(
+		def,
+		catalog.get_shape(lvl),
+		FruitRegistry.textures.get_texture(lvl),
+		catalog.get_physics_material_for_property(prop),
+		FruitRegistry.textures.get_sprite_scale_for_radius(def.radius),
+		prop
+	)
+	f.activate(pos, lin_vel, false, GameBoard.DANGER_LINE_Y, false)
+	return f
+
+
+func _test_modes_and_save_manager() -> void:
+	var prev_normal := SaveManager.get_high_score(GameMode.Mode.NORMAL)
+	var prev_frenzy := SaveManager.get_high_score(GameMode.Mode.FRENZY)
+
+	# Verify Normal vs Frenzy high scores are independent
+	SaveManager.try_update_high_score(prev_normal + 10, GameMode.Mode.NORMAL)
+	_assert(SaveManager.get_high_score(GameMode.Mode.NORMAL) == prev_normal + 10, "Normal high score should update independently")
+	_assert(SaveManager.get_high_score(GameMode.Mode.FRENZY) == prev_frenzy, "Updating Normal high score must not overwrite Frenzy high score")
+
+	SaveManager.try_update_high_score(prev_frenzy + 25, GameMode.Mode.FRENZY)
+	_assert(SaveManager.get_high_score(GameMode.Mode.FRENZY) == prev_frenzy + 25, "Frenzy high score should update independently")
+
+	var board := GameBoard.new()
+	add_child(board)
+	await get_tree().process_frame
+
+	_assert(board.game_mode == GameMode.Mode.NORMAL, "Default GameBoard mode should be NORMAL")
+	_assert(board.current_property == FruitProperty.Type.NONE, "Normal mode must spawn NONE property")
+	_assert(board.next_property == FruitProperty.Type.NONE, "Normal mode next_property must be NONE")
+
+	board.set_game_mode(GameMode.Mode.FRENZY)
+	_assert(board.game_mode == GameMode.Mode.FRENZY, "set_game_mode should switch to FRENZY")
+
+	# Verify 20% randomized Frenzy property distribution
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 2026
+	var special_count := 0
+	var none_count := 0
+	var seen_types := {}
+	for _i in range(500):
+		var p := FruitProperty.pick_for_frenzy(rng)
+		if p == FruitProperty.Type.NONE:
+			none_count += 1
+		else:
+			special_count += 1
+			seen_types[p] = true
+	_assert(none_count > 0 and special_count > 0, "Frenzy property roll must produce both NONE and special properties")
+	_assert(special_count >= 60 and special_count <= 140, "Expected ~20%% (60..140/500) special properties, got %d" % special_count)
+	_assert(seen_types.size() == FruitProperty.FRENZY_TYPES.size(), "All 5 Frenzy property types should appear in randomized rolls")
+
+	# Verify GameBoard in Frenzy mode drops both NONE and special-property fruits
+	board._rng.seed = 2026
+	board.reset_game()
+	var board_none := 0
+	var board_special := 0
+	for i in range(40):
+		board.dropper.cooldown_timer = 0.0
+		board.dropper.has_held_fruit = true
+		board._on_drop_requested(float((i % 5) * 40 - 80))
+	for f in board.fruit_pool.active_fruits:
+		if f.fruit_property == FruitProperty.Type.NONE:
+			board_none += 1
+		else:
+			board_special += 1
+	_assert(board_none > 0 and board_special > 0, "Frenzy GameBoard drops must include both normal (%d) and special (%d) fruits" % [board_none, board_special])
+
+	board.queue_free()
+
+
+func _test_frenzy_sticky_property() -> void:
+	var board := GameBoard.new()
+	add_child(board)
+	await get_tree().process_frame
+	board.set_game_mode(GameMode.Mode.FRENZY)
+
+	# 1. Stick to jar wall
+	var def0 := FruitRegistry.catalog.get_fruit(0)
+	var wall_sticky := _spawn_test_fruit(
+		board,
+		0,
+		Vector2(-JarContainer.INNER_HALF_WIDTH + def0.radius - 1.0, 420.0),
+		FruitProperty.Type.STICKY,
+		Vector2(-80.0, 20.0)
+	)
+	for _i in range(8):
+		await get_tree().physics_frame
+		if wall_sticky.is_stuck:
+			break
+	_assert(wall_sticky.is_stuck, "Sticky fruit touching jar wall must become stuck")
+	_assert(wall_sticky.freeze, "Sticky fruit stuck to jar wall must freeze in place")
+
+	# 2. Stick to jar floor
+	board.reset_game()
+	var floor_sticky := _spawn_test_fruit(
+		board,
+		0,
+		Vector2(0.0, JarContainer.FLOOR_Y - def0.radius - 6.0),
+		FruitProperty.Type.STICKY,
+		Vector2(0.0, 120.0)
+	)
+	for _i in range(15):
+		await get_tree().physics_frame
+		if floor_sticky.is_stuck:
+			break
+	_assert(floor_sticky.is_stuck and floor_sticky.freeze, "Sticky fruit touching jar floor must stick to floor")
+
+	# 3. Stick magnetically to a different-level fruit without orbiting or clipping, then detach cleanly when target merges
+	board.reset_game()
+	var base_a := _spawn_test_fruit(board, 1, Vector2(0.0, JarContainer.FLOOR_Y - 28.0), FruitProperty.Type.NONE)
+	var sticky_top := _spawn_test_fruit(board, 0, Vector2(14.0, JarContainer.FLOOR_Y - 28.0 - 48.0), FruitProperty.Type.STICKY, Vector2(0.0, 90.0))
+	for _i in range(25):
+		await get_tree().physics_frame
+		if sticky_top.is_stuck:
+			break
+	_assert(sticky_top.is_stuck and sticky_top.stuck_target == base_a, "Sticky fruit must stick to different-level fruit")
+
+	# Push base_a laterally and run live physics to verify sticky_top follows like a magnet without orbiting or clipping
+	base_a.apply_central_impulse(Vector2(180.0, 0.0))
+	for _i in range(35):
+		await get_tree().physics_frame
+	var surface_dist := sticky_top.position.distance_to(base_a.position)
+	var expected_dist := sticky_top.radius + base_a.radius
+	_assert(absf(surface_dist - expected_dist) < 6.0, "Sticky fruit must stay magnetically on target surface (dist=%f, expected=%f)" % [surface_dist, expected_dist])
+	var rel_angle := (sticky_top.position - base_a.position).angle() - base_a.rotation
+	var angle_drift := absf(wrapf(rel_angle - sticky_top.stuck_local_angle, -PI, PI))
+	_assert(angle_drift < 0.25, "Sticky fruit must not orbit around contact point (angle_drift=%f)" % angle_drift)
+
+	# Merge base_a with another level-1 fruit -> sticky_top must detach cleanly without crashing
+	var base_b := _spawn_test_fruit(board, 1, base_a.position + Vector2(54.0, 0.0), FruitProperty.Type.NONE)
+	board._on_fruit_merge_contact(base_a, base_b)
+	await get_tree().process_frame
+	_assert(not sticky_top.is_stuck and sticky_top.stuck_target == null, "Sticky fruit must detach cleanly when its target fruit merges")
+
+	# 4. Same-level sticky fruit merges instead of only sticking, and awards merge score
+	board.reset_game()
+	var s1 := _spawn_test_fruit(board, 0, Vector2(-18.0, 680.0), FruitProperty.Type.STICKY)
+	var s2 := _spawn_test_fruit(board, 0, Vector2(18.0, 680.0), FruitProperty.Type.NONE)
+	board._on_fruit_merge_contact(s1, s2)
+	await get_tree().process_frame
+	_assert(board.fruit_pool.active_fruits.size() == 1, "Same-level sticky + normal pair must merge")
+	_assert(board.score == FruitRegistry.catalog.get_fruit(1).score, "Merging sticky fruit must award merge score")
+
+	board.queue_free()
+
+
+func _test_frenzy_bomb_property() -> void:
+	var board := GameBoard.new()
+	add_child(board)
+	await get_tree().process_frame
+	board.set_game_mode(GameMode.Mode.FRENZY)
+
+	# 1. Merging a bomb before timer expires disarms it and awards merge score without destroying nearby fruits
+	var bystander := _spawn_test_fruit(board, 2, Vector2(90.0, 720.0), FruitProperty.Type.NONE)
+	var b1 := _spawn_test_fruit(board, 0, Vector2(-15.0, 720.0), FruitProperty.Type.BOMB)
+	_assert(is_equal_approx(b1.bomb_timer, 10.0), "Bomb fruit must start with 10.0s timer")
+	var b2 := _spawn_test_fruit(board, 0, Vector2(15.0, 720.0), FruitProperty.Type.NONE)
+	board._on_fruit_merge_contact(b1, b2)
+	await get_tree().process_frame
+	_assert(board.fruit_pool.active_fruits.size() == 2, "Merging bomb must leave merged fruit + bystander intact")
+	_assert(not bystander.in_pool, "Bystander must not be destroyed when bomb merges")
+	_assert(board.score == FruitRegistry.catalog.get_fruit(1).score, "Merged bomb must award merge score")
+
+	# 2. Expired bomb explodes, destroys itself & nearby fruits, spares distant fruit, and awards 0 score
+	board.reset_game()
+	var bomb := _spawn_test_fruit(board, 0, Vector2(0.0, 760.0), FruitProperty.Type.BOMB)
+	var nearby := _spawn_test_fruit(board, 1, Vector2(60.0, 760.0), FruitProperty.Type.NONE)
+	var distant := _spawn_test_fruit(board, 1, Vector2(230.0, 760.0), FruitProperty.Type.NONE)
+	bomb.bomb_timer = 0.05
+	for _i in range(10):
+		await get_tree().physics_frame
+		if bomb.in_pool:
+			break
+	_assert(bomb.in_pool, "Expired bomb must be destroyed")
+	_assert(nearby.in_pool, "Nearby fruit within bomb blast radius must be destroyed")
+	_assert(not distant.in_pool, "Distant fruit outside bomb blast radius must survive")
+	_assert(board.score == 0, "Bomb explosion destruction must award 0 score, got %d" % board.score)
+
+	board.queue_free()
+
+
+func _test_frenzy_nuclear_property() -> void:
+	var board := GameBoard.new()
+	add_child(board)
+	await get_tree().process_frame
+	board.set_game_mode(GameMode.Mode.FRENZY)
+
+	var n1 := _spawn_test_fruit(board, 0, Vector2(-15.0, 720.0), FruitProperty.Type.NUCLEAR)
+	var n2 := _spawn_test_fruit(board, 0, Vector2(15.0, 720.0), FruitProperty.Type.NONE)
+	var nearby1 := _spawn_test_fruit(board, 1, Vector2(95.0, 720.0), FruitProperty.Type.NONE)
+	var nearby2 := _spawn_test_fruit(board, 2, Vector2(-110.0, 720.0), FruitProperty.Type.NONE)
+	var far_fruit := _spawn_test_fruit(board, 1, Vector2(0.0, 320.0), FruitProperty.Type.NONE)
+
+	board._on_fruit_merge_contact(n1, n2)
+	await get_tree().process_frame
+
+	_assert(nearby1.in_pool and nearby2.in_pool, "Nuclear merge must destroy nearby fruits")
+	_assert(not far_fruit.in_pool, "Distant fruit outside nuclear blast radius must survive")
+	_assert(board.fruit_pool.active_fruits.size() == 2, "Only leveled-up fruit and far fruit should remain, got %d" % board.fruit_pool.active_fruits.size())
+
+	var expected_merge_score := FruitRegistry.catalog.get_fruit(1).score
+	_assert(board.score == expected_merge_score, "Nuclear merge must award ONLY merge score (%d), not points for destroyed fruits, got %d" % [expected_merge_score, board.score])
+
+	var leveled_up: Fruit = null
+	for f in board.fruit_pool.active_fruits:
+		if f.level == 1 and f != far_fruit:
+			leveled_up = f
+	_assert(leveled_up != null and leveled_up.fruit_property == FruitProperty.Type.NONE, "Leveled-up fruit from nuclear merge must survive with NONE property")
+
+	board.queue_free()
+
+
+func _test_frenzy_concrete_property() -> void:
+	var board := GameBoard.new()
+	add_child(board)
+	await get_tree().process_frame
+	board.set_game_mode(GameMode.Mode.FRENZY)
+
+	var def0 := FruitRegistry.catalog.get_fruit(0)
+	var def1 := FruitRegistry.catalog.get_fruit(1)
+
+	# Place both a different-level fruit AND a same-level fruit in concrete's drop path
+	var victim_same := _spawn_test_fruit(board, 0, Vector2(0.0, 520.0), FruitProperty.Type.NONE)
+	var victim_diff := _spawn_test_fruit(board, 1, Vector2(0.0, JarContainer.FLOOR_Y - def1.radius), FruitProperty.Type.NONE)
+	victim_same.freeze = true
+	victim_diff.freeze = true
+
+	var concrete := _spawn_test_fruit(board, 0, Vector2(0.0, GameBoard.DROP_Y), FruitProperty.Type.CONCRETE, Vector2(0.0, 200.0))
+	_assert(concrete.is_concrete_crushing(), "Dropped concrete fruit must start in crushing state")
+
+	for _i in range(120):
+		await get_tree().physics_frame
+		if concrete.concrete_landed:
+			break
+
+	_assert(concrete.concrete_landed, "Concrete fruit must land on the jar floor")
+	_assert(victim_same.in_pool, "Falling concrete must destroy same-level fruit in path without merging")
+	_assert(victim_diff.in_pool, "Falling concrete must destroy different-level fruit on floor")
+	_assert(board.score == 0, "Concrete crush destruction must award 0 score, got %d" % board.score)
+	_assert(concrete.collision_layer == Fruit.LAYER_FRUIT, "Landed concrete must restore normal fruit collision layer")
+
+	# After landing on floor, concrete stops destroying and can merge normally for score
+	var partner := _spawn_test_fruit(board, 0, Vector2(def0.radius * 2.0 + 0.5, concrete.position.y), FruitProperty.Type.NONE)
+	for _i in range(15):
+		await get_tree().physics_frame
+		await get_tree().process_frame
+		if board.score > 0:
+			break
+	_assert(not partner.in_pool or board.score == def1.score, "Landed concrete should merge instead of crushing")
+	_assert(board.score == def1.score, "Merging landed concrete must award merge score %d, got %d" % [def1.score, board.score])
+
+	board.queue_free()
+
+
+func _test_frenzy_charged_property() -> void:
+	var board := GameBoard.new()
+	add_child(board)
+	await get_tree().process_frame
+	board.set_game_mode(GameMode.Mode.FRENZY)
+
+	var def0 := FruitRegistry.catalog.get_fruit(0)
+	var charged := _spawn_test_fruit(
+		board,
+		0,
+		Vector2(0.0, JarContainer.FLOOR_Y - def0.radius - 120.0),
+		FruitProperty.Type.CHARGED,
+		Vector2(0.0, 420.0)
+	)
+	_assert(charged.physics_material_override.bounce > 0.8, "Charged fruit must have high-bounce physics material")
+
+	var bounced_up := false
+	for _i in range(40):
+		await get_tree().physics_frame
+		if charged.has_collided and charged.linear_velocity.y < -150.0:
+			bounced_up = true
+			break
+	_assert(bounced_up, "Charged fruit must bounce strongly upward after hitting floor")
+
+	# Merging charged fruit clears charged property and restores normal physics material
+	var other := _spawn_test_fruit(board, 0, charged.position + Vector2(def0.radius * 1.6, 0.0), FruitProperty.Type.NONE)
+	board._on_fruit_merge_contact(charged, other)
+	await get_tree().process_frame
+	_assert(board.fruit_pool.active_fruits.size() == 1, "Charged + normal same-level pair must merge")
+	if board.fruit_pool.active_fruits.size() == 1:
+		var merged := board.fruit_pool.active_fruits[0]
+		_assert(merged.fruit_property == FruitProperty.Type.NONE, "Merged fruit must clear CHARGED property")
+		_assert(merged.physics_material_override == FruitRegistry.catalog.get_physics_material(), "Merged fruit must restore normal physics material")
+	_assert(board.score == FruitRegistry.catalog.get_fruit(1).score, "Merging charged fruit must award merge score")
+
+	board.queue_free()

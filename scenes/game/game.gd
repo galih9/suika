@@ -16,6 +16,7 @@ extends Control
 @onready var _next_title: Label = %NextTitle
 @onready var _next_icon: TextureRect = %NextIcon
 @onready var _next_name: Label = %NextName
+@onready var _next_prop_label: Label = %NextPropLabel
 
 @onready var _restart_button: Button = %RestartButton
 @onready var _pause_button: Button = %PauseButton
@@ -74,9 +75,12 @@ func _ready() -> void:
 	_game_over_overlay.visible = false
 	_danger_banner.visible = false
 
+	_board.set_game_mode(SceneManager.selected_mode)
+	_best_title.text = "FRENZY" if _board.game_mode == GameMode.Mode.FRENZY else "BEST"
+
 	# Sync initial HUD values from board
 	_on_board_score_changed(_board.score, _board.best_score, 0)
-	_on_board_next_fruit_changed(_board.next_level)
+	_on_board_next_fruit_changed(_board.next_level, _board.next_property)
 
 
 func _apply_styles() -> void:
@@ -184,11 +188,19 @@ func _on_board_score_changed(new_score: int, new_best: int, _delta_points: int) 
 	_best_value.text = str(new_best)
 
 
-func _on_board_next_fruit_changed(next_lvl: int) -> void:
+func _on_board_next_fruit_changed(next_lvl: int, next_prop: int = FruitProperty.Type.NONE) -> void:
 	var def := FruitRegistry.catalog.get_fruit(next_lvl)
 	var tex := FruitRegistry.textures.get_texture(next_lvl)
 	_next_icon.texture = tex
 	_next_name.text = def.display_name if def != null else ""
+
+	var prop := next_prop as FruitProperty.Type
+	if prop != FruitProperty.Type.NONE:
+		_next_prop_label.visible = true
+		_next_prop_label.text = FruitProperty.get_short_label(prop)
+		_next_prop_label.add_theme_color_override("font_color", FruitProperty.get_accent_color(prop))
+	else:
+		_next_prop_label.visible = false
 
 
 func _on_board_danger_changed(is_triggered: bool, progress: float) -> void:
@@ -202,7 +214,7 @@ func _on_board_game_over(final_score: int, is_new_best: bool) -> void:
 	_danger_banner.visible = false
 	_new_best_badge.visible = is_new_best
 	_final_score_label.text = "Score: %d" % final_score
-	_final_best_label.text = "Best: %d" % SaveManager.get_high_score()
+	_final_best_label.text = "Best: %d" % SaveManager.get_high_score(_board.game_mode)
 	_game_over_overlay.visible = true
 
 

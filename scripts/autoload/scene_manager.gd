@@ -9,6 +9,7 @@ const GAME_SCENE := "res://scenes/game/game.tscn"
 
 var next_scene_path: String = MENU_SCENE
 var loading_hint: String = "Loading..."
+var selected_mode: GameMode.Mode = GameMode.Mode.NORMAL
 
 
 func goto_scene_with_loading(target_path: String, hint: String = "Loading...") -> void:

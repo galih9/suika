@@ -146,6 +146,14 @@ theme_override_font_sizes/font_size = 14
 text = "Kersen"
 horizontal_alignment = 1
 
+[node name="NextPropLabel" type="Label" parent="HUD/TopMargin/TopRow/NextCard/NextVBox"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_font_sizes/font_size = 12
+text = "BOMB"
+horizontal_alignment = 1
+
 [node name="ButtonsCol" type="VBoxContainer" parent="HUD/TopMargin/TopRow"]
 layout_mode = 2
 theme_override_constants/separation = 8

@@ -37,6 +37,8 @@ func enqueue_contact(a: Fruit, b: Fruit) -> bool:
 		return false
 	if not a.is_dropped or not b.is_dropped:
 		return false
+	if a.is_concrete_crushing() or b.is_concrete_crushing():
+		return false
 	if a.level != b.level:
 		return false
 
@@ -92,7 +94,7 @@ func scan_active_contacts(active_fruits: Array[Fruit]) -> bool:
 func process_queue(pool: FruitPool, jar: JarContainer, effects: MergeEffects) -> Dictionary:
 	_flush_scheduled = false
 	if _pending_merges.is_empty():
-		return {"gained_score": 0, "unlocked_levels": []}
+		return {"gained_score": 0, "unlocked_levels": [], "nuclear_blasts": []}
 
 	var batch := _pending_merges.duplicate()
 	_pending_merges.clear()
@@ -101,6 +103,7 @@ func process_queue(pool: FruitPool, jar: JarContainer, effects: MergeEffects) ->
 	var catalog := FruitRegistry.catalog
 	var gained_total := 0
 	var unlocked_levels: Array[int] = []
+	var nuclear_blasts: Array[Dictionary] = []
 
 	for pair in batch:
 		if pair.size() != 2:
@@ -114,11 +117,18 @@ func process_queue(pool: FruitPool, jar: JarContainer, effects: MergeEffects) ->
 		var midpoint := (a.position + b.position) * 0.5
 		var avg_vel := (a.linear_velocity + b.linear_velocity) * 0.25
 		var parent_was_below := a.has_been_below_danger_line or b.has_been_below_danger_line
+		var trigger_nuclear := (
+			a.fruit_property == FruitProperty.Type.NUCLEAR
+			or b.fruit_property == FruitProperty.Type.NUCLEAR
+		)
 
 		pool.release(a)
 		pool.release(b)
 
 		var wake_radius := WAKE_RADIUS_PADDING
+		var spawned_fruit: Fruit = null
+		var blast_center := midpoint
+		var blast_base_radius := 40.0
 		if catalog.has_next_level(merged_level):
 			var next_lvl := merged_level + 1
 			var next_def := catalog.get_fruit(next_lvl)
@@ -130,9 +140,13 @@ func process_queue(pool: FruitPool, jar: JarContainer, effects: MergeEffects) ->
 				catalog.get_shape(next_lvl),
 				FruitRegistry.textures.get_texture(next_lvl),
 				catalog.get_physics_material(),
-				FruitRegistry.textures.get_sprite_scale_for_radius(next_def.radius)
+				FruitRegistry.textures.get_sprite_scale_for_radius(next_def.radius),
+				FruitProperty.Type.NONE
 			)
 			merged_fruit.activate(clamped_pos, avg_vel, true, JarContainer.DANGER_LINE_Y, parent_was_below)
+			spawned_fruit = merged_fruit
+			blast_center = clamped_pos
+			blast_base_radius = next_def.radius
 
 			gained_total += next_def.score
 			unlocked_levels.append(next_lvl)
@@ -145,6 +159,7 @@ func process_queue(pool: FruitPool, jar: JarContainer, effects: MergeEffects) ->
 			var max_def := catalog.get_fruit(merged_level)
 			var bonus := catalog.get_max_merge_bonus(merged_level)
 			var burst_radius := max_def.radius if max_def != null else 126.0
+			blast_base_radius = burst_radius
 			gained_total += bonus
 			wake_radius += burst_radius
 			AudioManager.play_merge(merged_level + 1)
@@ -156,16 +171,30 @@ func process_queue(pool: FruitPool, jar: JarContainer, effects: MergeEffects) ->
 					true
 				)
 
+		if trigger_nuclear:
+			nuclear_blasts.append({
+				"center": blast_center,
+				"base_radius": blast_base_radius,
+				"exempt": spawned_fruit,
+			})
+
 		_wake_nearby_fruits(pool.active_fruits, midpoint, wake_radius)
 
 	return {
 		"gained_score": gained_total,
 		"unlocked_levels": unlocked_levels,
+		"nuclear_blasts": nuclear_blasts,
 	}
 
 
 func _is_merge_eligible(fruit: Fruit) -> bool:
-	return fruit != null and not fruit.in_pool and not fruit.is_merging and fruit.is_dropped
+	return (
+		fruit != null
+		and not fruit.in_pool
+		and not fruit.is_merging
+		and fruit.is_dropped
+		and not fruit.is_concrete_crushing()
+	)
 
 
 func _wake_nearby_fruits(active_fruits: Array[Fruit], center: Vector2, radius: float) -> void:

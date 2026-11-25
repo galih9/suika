@@ -10,11 +10,23 @@ var active_fruits: Array[Fruit] = []
 var _free_list: Array[Fruit] = []
 var _quarantine_list: Array[Fruit] = []
 var _contact_callback: Callable
+var _sticky_callback: Callable
+var _charged_callback: Callable
+var _pre_release_callback: Callable
 
 
-func initialize(container: Node2D, contact_callback: Callable) -> void:
+func initialize(
+	container: Node2D,
+	contact_callback: Callable,
+	sticky_callback: Callable = Callable(),
+	charged_callback: Callable = Callable(),
+	pre_release_callback: Callable = Callable()
+) -> void:
 	fruits_container = container
 	_contact_callback = contact_callback
+	_sticky_callback = sticky_callback
+	_charged_callback = charged_callback
+	_pre_release_callback = pre_release_callback
 	for i in range(INITIAL_POOL_SIZE):
 		var fruit := _create_fruit()
 		_free_list.append(fruit)
@@ -25,6 +37,10 @@ func _create_fruit() -> Fruit:
 	fruit.deactivate_to_pool()
 	if _contact_callback.is_valid():
 		fruit.merge_contact.connect(_contact_callback)
+	if _sticky_callback.is_valid():
+		fruit.sticky_contact.connect(_sticky_callback)
+	if _charged_callback.is_valid():
+		fruit.charged_bounced.connect(_charged_callback)
 	if fruits_container != null:
 		fruits_container.add_child(fruit)
 	return fruit
@@ -45,6 +61,8 @@ func acquire() -> Fruit:
 func release(fruit: Fruit) -> void:
 	if fruit == null or fruit.in_pool:
 		return
+	if _pre_release_callback.is_valid():
+		_pre_release_callback.call(fruit)
 	fruit.deactivate_to_pool()
 	var idx := fruit.pool_index
 	var last_idx := active_fruits.size() - 1

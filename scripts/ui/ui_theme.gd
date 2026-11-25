@@ -14,6 +14,8 @@ const SECONDARY_BEIGE := Color("#F5E6D3")
 const SECONDARY_BEIGE_HOVER := Color("#ECD5BA")
 const SECONDARY_BEIGE_PRESSED := Color("#DFC09E")
 const ACCENT_CORAL := Color("#E65100")
+const ACCENT_CORAL_HOVER := Color("#F4511E")
+const ACCENT_CORAL_PRESSED := Color("#BF360C")
 const DANGER_RED := Color("#D32F2F")
 const TEXT_DARK := Color("#3E2723")
 const TEXT_MUTED := Color("#6D4C41")
@@ -64,6 +66,20 @@ static func style_secondary_button(btn: Button, radius: int = 16, font_size: int
 	btn.add_theme_color_override("font_color", TEXT_DARK)
 	btn.add_theme_color_override("font_hover_color", TEXT_DARK)
 	btn.add_theme_color_override("font_pressed_color", TEXT_DARK)
+	btn.add_theme_font_size_override("font_size", font_size)
+
+
+static func style_accent_button(btn: Button, radius: int = 18, font_size: int = 26) -> void:
+	var normal := make_panel_style(ACCENT_CORAL, ACCENT_CORAL_PRESSED, radius, 2, 20, 14)
+	var hover := make_panel_style(ACCENT_CORAL_HOVER, ACCENT_CORAL_PRESSED, radius, 2, 20, 14)
+	var pressed := make_panel_style(ACCENT_CORAL_PRESSED, ACCENT_CORAL_PRESSED, radius, 2, 20, 14)
+	btn.add_theme_stylebox_override("normal", normal)
+	btn.add_theme_stylebox_override("hover", hover)
+	btn.add_theme_stylebox_override("pressed", pressed)
+	btn.add_theme_stylebox_override("focus", hover)
+	btn.add_theme_color_override("font_color", Color.WHITE)
+	btn.add_theme_color_override("font_hover_color", Color.WHITE)
+	btn.add_theme_color_override("font_pressed_color", Color("#FBE9E7"))
 	btn.add_theme_font_size_override("font_size", font_size)
 
 
