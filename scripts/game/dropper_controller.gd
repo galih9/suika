@@ -1,11 +1,17 @@
 class_name DropperController
 extends Node2D
 
-## Manages held-fruit preview, aim guide line, pointer drag/click input, and drop cooldown buffering.
+## Manages held-fruit preview, aim guide, pointer drag/click input, and drop cooldown buffering.
+##
+## The next fruit is shown as soon as the previous one drops (dimmed while the cooldown runs),
+## so the player can keep aiming. A tap during the cooldown is queued and released from the
+## preview's spot once the cooldown ends — the fruit never pops into existence out of nowhere.
 
 signal drop_requested(spawn_x: float)
 
 const DROP_COOLDOWN := 0.32
+const COOLDOWN_ALPHA := 0.45
+const GUIDE_PIXEL := 4.0
 
 var drop_x: float = 0.0
 var has_held_fruit: bool = false
@@ -19,6 +25,9 @@ var _held_property: FruitProperty.Type = FruitProperty.Type.NONE
 var _show_guide: bool = false
 var _sprite: Sprite2D
 var _overlay: FruitPropertyOverlay
+var _pop_tween: Tween
+var _sprite_scale: float = 1.0
+var _bob_time: float = 0.0
 
 
 func _init() -> void:
@@ -28,7 +37,18 @@ func _init() -> void:
 	add_child(_sprite)
 
 	_overlay = FruitPropertyOverlay.new()
+	_overlay.bind_target(_sprite)
 	add_child(_overlay)
+
+
+func _process(delta: float) -> void:
+	if not has_held_fruit:
+		return
+	# Gentle idle bob so the held fruit feels alive.
+	_bob_time += delta
+	var bob := sin(_bob_time * 4.0) * 2.0
+	_sprite.position = Vector2(drop_x, JarContainer.DROP_Y + bob)
+	_overlay.position = _sprite.position
 
 
 func reset() -> void:
@@ -41,7 +61,9 @@ func reset() -> void:
 	_held_radius = 20.0
 	_held_property = FruitProperty.Type.NONE
 	_show_guide = false
+	_kill_pop()
 	_sprite.visible = false
+	_sprite.modulate = Color.WHITE
 	_overlay.reset()
 	queue_redraw()
 
@@ -55,9 +77,8 @@ func show_held_fruit(
 	var tex := FruitRegistry.textures.get_texture(level)
 	_held_radius = def.radius if def != null else 20.0
 	_held_property = prop
-	var s := FruitRegistry.textures.get_sprite_scale_for_radius(_held_radius)
+	_sprite_scale = FruitRegistry.textures.get_sprite_scale(level)
 	_sprite.texture = tex
-	_sprite.scale = Vector2(s, s)
 
 	if jar != null:
 		drop_x = jar.clamp_drop_x(drop_x, _held_radius)
@@ -69,14 +90,27 @@ func show_held_fruit(
 	_show_guide = true
 	_sprite.visible = true
 	_sprite.position = Vector2(drop_x, JarContainer.DROP_Y)
+	_sprite.modulate = Color(1.0, 1.0, 1.0, COOLDOWN_ALPHA if cooldown_timer > 0.0 else 1.0)
 	_overlay.configure(prop, _held_radius, true)
 	_overlay.position = _sprite.position
+
+	# Little pop-in so the new fruit is noticed.
+	_kill_pop()
+	if is_inside_tree():
+		_sprite.scale = Vector2(_sprite_scale, _sprite_scale) * 0.4
+		_pop_tween = create_tween()
+		_pop_tween.tween_property(_sprite, "scale", Vector2(_sprite_scale, _sprite_scale), 0.22) \
+			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	else:
+		_sprite.scale = Vector2(_sprite_scale, _sprite_scale)
 	queue_redraw()
 
 
 func hide_guide() -> void:
 	has_held_fruit = false
 	_show_guide = false
+	_queued_drop = false
+	_kill_pop()
 	_sprite.visible = false
 	_overlay.reset()
 	queue_redraw()
@@ -89,7 +123,15 @@ func cancel_drag() -> void:
 
 func start_cooldown() -> void:
 	cooldown_timer = DROP_COOLDOWN
-	hide_guide()
+	has_held_fruit = false
+	_queued_drop = false
+	_sprite.visible = false
+	_overlay.reset()
+	queue_redraw()
+
+
+func is_ready_to_drop() -> bool:
+	return has_held_fruit and cooldown_timer <= 0.0
 
 
 func tick(
@@ -102,20 +144,19 @@ func tick(
 		return
 
 	cooldown_timer = maxf(cooldown_timer - delta, 0.0)
-	if cooldown_timer > 0.0 or has_held_fruit:
+	if cooldown_timer > 0.0:
 		return
+
+	# Cooldown just finished.
+	if not has_held_fruit:
+		show_held_fruit(next_held_level, jar, next_held_prop)
+	_sprite.modulate = Color.WHITE
+	queue_redraw()
 
 	if _queued_drop:
 		_queued_drop = false
-		var def := FruitRegistry.catalog.get_fruit(next_held_level)
-		var next_radius := def.radius if def != null else 20.0
-		_held_radius = next_radius
-		_held_property = next_held_prop
-		drop_x = jar.clamp_drop_x(_queued_drop_x, next_radius)
-		has_held_fruit = true
+		drop_x = jar.clamp_drop_x(_queued_drop_x, _held_radius)
 		drop_requested.emit(drop_x)
-	else:
-		show_held_fruit(next_held_level, jar, next_held_prop)
 
 
 func handle_input(event: InputEvent, board: Node2D, jar: JarContainer, can_interact: bool) -> void:
@@ -159,15 +200,26 @@ func _update_aim_x(local_x: float, jar: JarContainer) -> void:
 		queue_redraw()
 
 
+func _kill_pop() -> void:
+	if _pop_tween != null and _pop_tween.is_valid():
+		_pop_tween.kill()
+	_pop_tween = null
+	_sprite.scale = Vector2(_sprite_scale, _sprite_scale)
+
+
 func _draw() -> void:
-	if not _show_guide:
+	if not _show_guide or not has_held_fruit:
 		return
-	var y := JarContainer.DROP_Y + maxf(_held_radius, 20.0)
-	var col := Color(0.45, 0.30, 0.18, 0.24)
+	# Pixel-style dotted aim guide: small squares snapped to the 4px fruit pixel grid.
+	var col := Color(0.18, 0.23, 0.36, 0.22)
 	if _held_property != FruitProperty.Type.NONE:
 		var prop_col := FruitProperty.get_color(_held_property)
-		col = Color(prop_col.r, prop_col.g, prop_col.b, 0.38)
-	while y < JarContainer.FLOOR_Y - 12.0:
-		var seg_end := minf(y + 10.0, JarContainer.FLOOR_Y - 12.0)
-		draw_line(Vector2(drop_x, y), Vector2(drop_x, seg_end), col, 2.5, true)
-		y += 22.0
+		col = Color(prop_col.r, prop_col.g, prop_col.b, 0.5)
+	if cooldown_timer > 0.0:
+		col.a *= 0.5
+	var x := floorf(drop_x / GUIDE_PIXEL) * GUIDE_PIXEL - GUIDE_PIXEL * 0.5
+	var y := JarContainer.DROP_Y + maxf(_held_radius, 20.0) + 8.0
+	var bottom := JarContainer.FLOOR_Y - 12.0
+	while y < bottom:
+		draw_rect(Rect2(x, floorf(y / GUIDE_PIXEL) * GUIDE_PIXEL, GUIDE_PIXEL, GUIDE_PIXEL), col)
+		y += GUIDE_PIXEL * 5.0

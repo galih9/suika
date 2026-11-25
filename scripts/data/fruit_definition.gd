@@ -3,6 +3,8 @@ extends Resource
 
 ## Data resource describing one fruit tier in the merge hierarchy.
 
+## Legacy: only used by the old procedural FruitPainter (scripts/data/fruit_painter.gd).
+## Safe to delete together with that script.
 enum PatternType {
 	KERSEN,
 	DUKUH,
@@ -26,4 +28,7 @@ enum PatternType {
 @export var accent_color: Color = Color.WHITE
 @export var outline_color: Color = Color.BLACK
 @export var pattern_type: PatternType = PatternType.GENERIC_DOTTED
+## Sprite for this tier (an AtlasTexture region of the fruit spritesheet). The sprite is
+## expected to be a circle filling its region; it is scaled so its width equals 2 * radius.
+@export var texture: Texture2D
 @export var spawn_weight: float = 0.0

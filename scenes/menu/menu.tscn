@@ -1,6 +1,7 @@
 [gd_scene format=3]
 
 [ext_resource type="Script" path="res://scenes/menu/menu.gd" id="1_menu"]
+[ext_resource type="Script" path="res://scripts/ui/casual_background.gd" id="2_bg"]
 
 [node name="MenuScene" type="Control"]
 layout_mode = 3
@@ -11,144 +12,140 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_menu")
 
-[node name="Background" type="ColorRect" parent="."]
+[node name="Background" type="Control" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(1, 0.972549, 0.933333, 1)
+mouse_filter = 2
+script = ExtResource("2_bg")
 
 [node name="SafeMargin" type="MarginContainer" parent="."]
+unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/margin_left = 32
-theme_override_constants/margin_top = 48
-theme_override_constants/margin_right = 32
-theme_override_constants/margin_bottom = 48
+mouse_filter = 2
+theme_override_constants/margin_left = 36
+theme_override_constants/margin_top = 28
+theme_override_constants/margin_right = 36
+theme_override_constants/margin_bottom = 36
 
-[node name="Center" type="CenterContainer" parent="SafeMargin"]
+[node name="Column" type="VBoxContainer" parent="SafeMargin"]
+unique_name_in_owner = true
 layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 16
 
-[node name="MainColumn" type="VBoxContainer" parent="SafeMargin/Center"]
-custom_minimum_size = Vector2(620, 0)
+[node name="TopBar" type="HBoxContainer" parent="SafeMargin/Column"]
+unique_name_in_owner = true
 layout_mode = 2
-theme_override_constants/separation = 26
+mouse_filter = 2
+
+[node name="TopSpacer" type="Control" parent="SafeMargin/Column"]
+layout_mode = 2
+size_flags_vertical = 3
+mouse_filter = 2
+
+[node name="Hero" type="VBoxContainer" parent="SafeMargin/Column"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 2
+
+[node name="FruitTrio" type="HBoxContainer" parent="SafeMargin/Column/Hero"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 96)
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 6
 alignment = 1
 
-[node name="HeaderBox" type="VBoxContainer" parent="SafeMargin/Center/MainColumn"]
-layout_mode = 2
-theme_override_constants/separation = 6
-
-[node name="TitleLabel" type="Label" parent="SafeMargin/Center/MainColumn/HeaderBox"]
+[node name="TitleLabel" type="Label" parent="SafeMargin/Column/Hero"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 54
-text = "BUAH MERGE"
+text = "Fruity-zer"
 horizontal_alignment = 1
 
-[node name="SubtitleLabel" type="Label" parent="SafeMargin/Center/MainColumn/HeaderBox"]
+[node name="SubtitleLabel" type="Label" parent="SafeMargin/Column/Hero"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 24
-text = "Kersen to Kelapa"
+text = "Drop it. Merge it. Grow it!"
 horizontal_alignment = 1
 
-[node name="BestWrap" type="CenterContainer" parent="SafeMargin/Center/MainColumn"]
+[node name="BestRow" type="HBoxContainer" parent="SafeMargin/Column"]
+unique_name_in_owner = true
 layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 14
+alignment = 1
 
-[node name="BestCard" type="PanelContainer" parent="SafeMargin/Center/MainColumn/BestWrap"]
+[node name="CollectionCard" type="PanelContainer" parent="SafeMargin/Column"]
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="BestLabel" type="Label" parent="SafeMargin/Center/MainColumn/BestWrap/BestCard"]
+[node name="CollectionVBox" type="VBoxContainer" parent="SafeMargin/Column/CollectionCard"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="CollectionHeader" type="HBoxContainer" parent="SafeMargin/Column/CollectionCard/CollectionVBox"]
+layout_mode = 2
+
+[node name="CollectionTitle" type="Label" parent="SafeMargin/Column/CollectionCard/CollectionVBox/CollectionHeader"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 20
-text = "NORMAL BEST: 0   |   FRENZY BEST: 0"
+size_flags_horizontal = 3
+text = "Fruit Collection"
+
+[node name="CollectionCount" type="Label" parent="SafeMargin/Column/CollectionCard/CollectionVBox/CollectionHeader"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "1 / 15"
+
+[node name="FruitGrid" type="GridContainer" parent="SafeMargin/Column/CollectionCard/CollectionVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 8
+columns = 5
+
+[node name="InfoLabel" type="Label" parent="SafeMargin/Column/CollectionCard/CollectionVBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 32)
+layout_mode = 2
+text = "Tap a fruit to see its name"
 horizontal_alignment = 1
 
-[node name="EvoCard" type="PanelContainer" parent="SafeMargin/Center/MainColumn"]
+[node name="PlayButton" type="Button" parent="SafeMargin/Column"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 112)
 layout_mode = 2
+focus_mode = 0
 
-[node name="EvoVBox" type="VBoxContainer" parent="SafeMargin/Center/MainColumn/EvoCard"]
+[node name="FrenzyRow" type="HBoxContainer" parent="SafeMargin/Column"]
 layout_mode = 2
 theme_override_constants/separation = 14
 
-[node name="EvoTitle" type="Label" parent="SafeMargin/Center/MainColumn/EvoCard/EvoVBox"]
+[node name="FrenzyButton" type="Button" parent="SafeMargin/Column/FrenzyRow"]
 unique_name_in_owner = true
-layout_mode = 2
-theme_override_font_sizes/font_size = 18
-text = "FRUIT HIERARCHY"
-horizontal_alignment = 1
-
-[node name="EvoFlow" type="HFlowContainer" parent="SafeMargin/Center/MainColumn/EvoCard/EvoVBox"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_constants/h_separation = 8
-theme_override_constants/v_separation = 12
-alignment = 1
-
-[node name="FrenzyLegendCard" type="PanelContainer" parent="SafeMargin/Center/MainColumn"]
-unique_name_in_owner = true
-layout_mode = 2
-
-[node name="FrenzyVBox" type="VBoxContainer" parent="SafeMargin/Center/MainColumn/FrenzyLegendCard"]
-layout_mode = 2
-theme_override_constants/separation = 10
-
-[node name="FrenzyTitle" type="Label" parent="SafeMargin/Center/MainColumn/FrenzyLegendCard/FrenzyVBox"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_font_sizes/font_size = 16
-text = "FRENZY PROPERTIES (SCORE ON MERGE ONLY)"
-horizontal_alignment = 1
-
-[node name="FrenzyFlow" type="HFlowContainer" parent="SafeMargin/Center/MainColumn/FrenzyLegendCard/FrenzyVBox"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_constants/h_separation = 10
-theme_override_constants/v_separation = 8
-alignment = 1
-
-[node name="ModeButtonsRow" type="HBoxContainer" parent="SafeMargin/Center/MainColumn"]
-layout_mode = 2
-theme_override_constants/separation = 16
-
-[node name="PlayButton" type="Button" parent="SafeMargin/Center/MainColumn/ModeButtonsRow"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 78)
+custom_minimum_size = Vector2(0, 96)
 layout_mode = 2
 size_flags_horizontal = 3
-text = "NORMAL MODE"
+focus_mode = 0
 
-[node name="FrenzyButton" type="Button" parent="SafeMargin/Center/MainColumn/ModeButtonsRow"]
+[node name="PowerUpsButton" type="Button" parent="SafeMargin/Column/FrenzyRow"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 78)
+custom_minimum_size = Vector2(236, 96)
 layout_mode = 2
-size_flags_horizontal = 3
-text = "FRENZY MODE"
+focus_mode = 0
 
-[node name="SecondaryRow" type="HBoxContainer" parent="SafeMargin/Center/MainColumn"]
+[node name="BottomSpacer" type="Control" parent="SafeMargin/Column"]
 layout_mode = 2
-theme_override_constants/separation = 16
-
-[node name="SoundButton" type="Button" parent="SafeMargin/Center/MainColumn/SecondaryRow"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 60)
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Sound: ON"
-
-[node name="QuitButton" type="Button" parent="SafeMargin/Center/MainColumn/SecondaryRow"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 60)
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Quit"
+size_flags_vertical = 3
+mouse_filter = 2

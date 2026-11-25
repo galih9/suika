@@ -1,7 +1,9 @@
 class_name FruitCatalog
 extends RefCounted
 
-## Ordered, extensible catalog of fruit tiers, shared physics shapes, and physics material.
+## Ordered, extensible catalog of the 15 sprite-based fruit tiers, shared physics shapes, and physics material.
+
+const SPRITE_PATH_FORMAT := "res://assets/fruit_%d.tres"
 
 var fruits: Array[FruitDefinition] = []
 var _shape_cache: Dictionary = {}
@@ -35,77 +37,49 @@ func _populate_defaults() -> void:
 	fruits.clear()
 	_shape_cache.clear()
 
-	# 0: Kersen
-	_add_default(
-		&"kersen", "Kersen", 0, 20.0, 1, 0.6, 40.0,
-		Color("#E53935"), Color("#FF6F60"), Color("#43A047"), Color("#8E0000"),
-		FruitDefinition.PatternType.KERSEN
-	)
-	# 1: Dukuh
-	_add_default(
-		&"dukuh", "Dukuh", 1, 28.0, 3, 1.1, 30.0,
-		Color("#E6C280"), Color("#C99E55"), Color("#6D7B3B"), Color("#7D5A2A"),
-		FruitDefinition.PatternType.DUKUH
-	)
-	# 2: Rambutan
-	_add_default(
-		&"rambutan", "Rambutan", 2, 39.0, 6, 1.9, 18.0,
-		Color("#D81B60"), Color("#F06292"), Color("#8BC34A"), Color("#880E4F"),
-		FruitDefinition.PatternType.RAMBUTAN
-	)
-	# 3: Salak
-	_add_default(
-		&"salak", "Salak", 3, 53.0, 10, 3.2, 12.0,
-		Color("#794225"), Color("#A15E38"), Color("#C68B59"), Color("#3E1F10"),
-		FruitDefinition.PatternType.SALAK
-	)
-	# 4: Jambu Biji
-	_add_default(
-		&"jambu_biji", "Jambu Biji", 4, 72.0, 15, 5.2, 0.0,
-		Color("#7CB342"), Color("#AED581"), Color("#F48FB1"), Color("#33691E"),
-		FruitDefinition.PatternType.JAMBU_BIJI
-	)
-	# 5: Manggis
-	_add_default(
-		&"manggis", "Manggis", 5, 96.0, 21, 8.2, 0.0,
-		Color("#5E2375"), Color("#8E44AD"), Color("#7CB342"), Color("#2E0E3B"),
-		FruitDefinition.PatternType.MANGGIS
-	)
-	# 6: Kelapa
-	_add_default(
-		&"kelapa", "Kelapa", 6, 126.0, 28, 12.5, 0.0,
-		Color("#6D4C41"), Color("#8D6E63"), Color("#3E2723"), Color("#3E2723"),
-		FruitDefinition.PatternType.KELAPA
-	)
+	# Radius = sprite pixel size * 2 so every fruit renders at a crisp 4x pixel scale
+	# (e.g. Blueberry 10px -> 20 radius, Watermelon 64px -> 128 radius).
+	# Only the first five tiers are droppable (spawn_weight > 0), like classic Suika.
+	_add_default(&"blueberry", "Blueberry", 0, 10, 1, 40.0, Color("#4060D0"))
+	_add_default(&"cherry", "Cherry", 1, 12, 3, 30.0, Color("#E02030"))
+	_add_default(&"strawberry", "Strawberry", 2, 14, 6, 20.0, Color("#F03050"))
+	_add_default(&"grape", "Grape", 3, 16, 10, 12.0, Color("#8040C0"))
+	_add_default(&"kiwi", "Kiwi", 4, 18, 15, 8.0, Color("#907030"))
+	_add_default(&"lime", "Lime", 5, 20, 21, 0.0, Color("#70C030"))
+	_add_default(&"orange", "Orange", 6, 24, 28, 0.0, Color("#F0A020"))
+	_add_default(&"persimmon", "Persimmon", 7, 28, 36, 0.0, Color("#F05010"))
+	_add_default(&"apple", "Apple", 8, 32, 45, 0.0, Color("#D02030"))
+	_add_default(&"pear", "Pear", 9, 36, 55, 0.0, Color("#E0D040"))
+	_add_default(&"peach", "Peach", 10, 40, 66, 0.0, Color("#F0A0A0"))
+	_add_default(&"dragonfruit", "Dragonfruit", 11, 44, 78, 0.0, Color("#E03080"))
+	_add_default(&"pineapple", "Pineapple", 12, 48, 91, 0.0, Color("#F0C020"))
+	_add_default(&"melon", "Melon", 13, 56, 105, 0.0, Color("#90D070"))
+	_add_default(&"watermelon", "Watermelon", 14, 64, 120, 0.0, Color("#30A040"))
 
 
 func _add_default(
 	id: StringName,
 	display_name: String,
 	level: int,
-	radius: float,
+	sprite_px: int,
 	score: int,
-	mass: float,
 	spawn_weight: float,
-	primary: Color,
-	secondary: Color,
-	accent: Color,
-	outline: Color,
-	pattern: FruitDefinition.PatternType
+	primary: Color
 ) -> void:
 	var def := FruitDefinition.new()
 	def.id = id
 	def.display_name = display_name
 	def.level = level
-	def.radius = radius
+	def.radius = float(sprite_px) * 2.0
 	def.score = score
-	def.mass = mass
+	# Mass grows a bit slower than area so big fruits stay pushable.
+	def.mass = 0.6 * pow(def.radius / 20.0, 1.65)
 	def.spawn_weight = spawn_weight
 	def.primary_color = primary
-	def.secondary_color = secondary
-	def.accent_color = accent
-	def.outline_color = outline
-	def.pattern_type = pattern
+	def.secondary_color = primary.lightened(0.25)
+	def.accent_color = primary.darkened(0.2)
+	def.outline_color = primary.darkened(0.5)
+	def.texture = load(SPRITE_PATH_FORMAT % (level + 1)) as Texture2D
 	fruits.append(def)
 
 

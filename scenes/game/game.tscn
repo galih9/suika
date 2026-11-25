@@ -2,6 +2,9 @@
 
 [ext_resource type="Script" path="res://scenes/game/game.gd" id="1_game"]
 [ext_resource type="Script" path="res://scripts/game/game_board.gd" id="2_board"]
+[ext_resource type="Script" path="res://scripts/ui/casual_background.gd" id="3_bg"]
+[ext_resource type="Script" path="res://scripts/ui/fruit_guide_strip.gd" id="4_guide"]
+[ext_resource type="Script" path="res://scripts/ui/toast_stack.gd" id="5_toast"]
 
 [node name="GameScene" type="Control"]
 layout_mode = 3
@@ -13,7 +16,7 @@ grow_vertical = 2
 mouse_filter = 2
 script = ExtResource("1_game")
 
-[node name="Background" type="ColorRect" parent="."]
+[node name="Background" type="Control" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -21,14 +24,27 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-color = Color(1, 0.972549, 0.933333, 1)
+script = ExtResource("3_bg")
+cloud_count = 5
+sparkle_count = 10
 
 [node name="BoardLayer" type="Node2D" parent="."]
+texture_filter = 1
 
 [node name="GameBoard" type="Node2D" parent="BoardLayer"]
 unique_name_in_owner = true
-position = Vector2(360, 190)
+position = Vector2(360, 200)
 script = ExtResource("2_board")
+
+[node name="FxLayer" type="Control" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
 
 [node name="HUD" type="Control" parent="."]
 layout_mode = 1
@@ -40,185 +56,170 @@ grow_vertical = 2
 mouse_filter = 2
 
 [node name="TopMargin" type="MarginContainer" parent="HUD"]
+unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
-offset_bottom = 154.0
+offset_bottom = 160.0
 grow_horizontal = 2
 mouse_filter = 2
-theme_override_constants/margin_left = 20
-theme_override_constants/margin_top = 24
-theme_override_constants/margin_right = 20
-theme_override_constants/margin_bottom = 8
+theme_override_constants/margin_left = 22
+theme_override_constants/margin_top = 22
+theme_override_constants/margin_right = 22
+theme_override_constants/margin_bottom = 6
 
 [node name="TopRow" type="HBoxContainer" parent="HUD/TopMargin"]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 12
 
-[node name="ScoreCard" type="PanelContainer" parent="HUD/TopMargin/TopRow"]
+[node name="LeftCol" type="VBoxContainer" parent="HUD/TopMargin/TopRow"]
+custom_minimum_size = Vector2(128, 0)
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 8
+
+[node name="PauseButton" type="Button" parent="HUD/TopMargin/TopRow/LeftCol"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(84, 84)
+layout_mode = 2
+size_flags_horizontal = 0
+focus_mode = 0
+
+[node name="ModeBadge" type="PanelContainer" parent="HUD/TopMargin/TopRow/LeftCol"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+size_flags_horizontal = 0
+mouse_filter = 2
+
+[node name="ModeLabel" type="Label" parent="HUD/TopMargin/TopRow/LeftCol/ModeBadge"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "FRENZY"
+horizontal_alignment = 1
+
+[node name="ScoreCol" type="VBoxContainer" parent="HUD/TopMargin/TopRow"]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
+theme_override_constants/separation = 0
 
-[node name="ScoreVBox" type="VBoxContainer" parent="HUD/TopMargin/TopRow/ScoreCard"]
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 2
-alignment = 1
-
-[node name="ScoreTitle" type="Label" parent="HUD/TopMargin/TopRow/ScoreCard/ScoreVBox"]
+[node name="ScoreValue" type="Label" parent="HUD/TopMargin/TopRow/ScoreCol"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 14
-text = "SCORE"
-horizontal_alignment = 1
-
-[node name="ScoreValue" type="Label" parent="HUD/TopMargin/TopRow/ScoreCard/ScoreVBox"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_font_sizes/font_size = 30
 text = "0"
 horizontal_alignment = 1
 
-[node name="BestCard" type="PanelContainer" parent="HUD/TopMargin/TopRow"]
-unique_name_in_owner = true
+[node name="BestWrap" type="CenterContainer" parent="HUD/TopMargin/TopRow/ScoreCol"]
 layout_mode = 2
-size_flags_horizontal = 3
 mouse_filter = 2
 
-[node name="BestVBox" type="VBoxContainer" parent="HUD/TopMargin/TopRow/BestCard"]
+[node name="BestChip" type="PanelContainer" parent="HUD/TopMargin/TopRow/ScoreCol/BestWrap"]
+unique_name_in_owner = true
 layout_mode = 2
 mouse_filter = 2
-theme_override_constants/separation = 2
+
+[node name="BestRow" type="HBoxContainer" parent="HUD/TopMargin/TopRow/ScoreCol/BestWrap/BestChip"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 6
+
+[node name="BestValue" type="Label" parent="HUD/TopMargin/TopRow/ScoreCol/BestWrap/BestChip/BestRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Best 0"
+
+[node name="RightCol" type="VBoxContainer" parent="HUD/TopMargin/TopRow"]
+custom_minimum_size = Vector2(128, 0)
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 6
+
+[node name="NextBubble" type="PanelContainer" parent="HUD/TopMargin/TopRow/RightCol"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(128, 116)
+layout_mode = 2
+mouse_filter = 2
+
+[node name="NextVBox" type="VBoxContainer" parent="HUD/TopMargin/TopRow/RightCol/NextBubble"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 0
 alignment = 1
 
-[node name="BestTitle" type="Label" parent="HUD/TopMargin/TopRow/BestCard/BestVBox"]
+[node name="NextTitle" type="Label" parent="HUD/TopMargin/TopRow/RightCol/NextBubble/NextVBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 14
-text = "BEST"
-horizontal_alignment = 1
-
-[node name="BestValue" type="Label" parent="HUD/TopMargin/TopRow/BestCard/BestVBox"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_font_sizes/font_size = 30
-text = "0"
-horizontal_alignment = 1
-
-[node name="NextCard" type="PanelContainer" parent="HUD/TopMargin/TopRow"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(148, 0)
-layout_mode = 2
-mouse_filter = 2
-
-[node name="NextVBox" type="VBoxContainer" parent="HUD/TopMargin/TopRow/NextCard"]
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 2
-alignment = 1
-
-[node name="NextTitle" type="Label" parent="HUD/TopMargin/TopRow/NextCard/NextVBox"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_font_sizes/font_size = 13
 text = "NEXT"
 horizontal_alignment = 1
 
-[node name="NextIconWrap" type="CenterContainer" parent="HUD/TopMargin/TopRow/NextCard/NextVBox"]
+[node name="NextIconWrap" type="CenterContainer" parent="HUD/TopMargin/TopRow/RightCol/NextBubble/NextVBox"]
+custom_minimum_size = Vector2(0, 64)
 layout_mode = 2
 mouse_filter = 2
 
-[node name="NextIcon" type="TextureRect" parent="HUD/TopMargin/TopRow/NextCard/NextVBox/NextIconWrap"]
+[node name="NextIcon" type="TextureRect" parent="HUD/TopMargin/TopRow/RightCol/NextBubble/NextVBox/NextIconWrap"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(44, 44)
+texture_filter = 1
+custom_minimum_size = Vector2(60, 60)
 layout_mode = 2
 mouse_filter = 2
 expand_mode = 1
 stretch_mode = 5
 
-[node name="NextName" type="Label" parent="HUD/TopMargin/TopRow/NextCard/NextVBox"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_font_sizes/font_size = 14
-text = "Kersen"
-horizontal_alignment = 1
-
-[node name="NextPropLabel" type="Label" parent="HUD/TopMargin/TopRow/NextCard/NextVBox"]
+[node name="NextPropTag" type="PanelContainer" parent="HUD/TopMargin/TopRow/RightCol"]
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
-theme_override_font_sizes/font_size = 12
+size_flags_horizontal = 4
+mouse_filter = 2
+
+[node name="NextPropLabel" type="Label" parent="HUD/TopMargin/TopRow/RightCol/NextPropTag"]
+unique_name_in_owner = true
+layout_mode = 2
 text = "BOMB"
 horizontal_alignment = 1
 
-[node name="ButtonsCol" type="VBoxContainer" parent="HUD/TopMargin/TopRow"]
-layout_mode = 2
-theme_override_constants/separation = 8
-alignment = 1
-
-[node name="PauseButton" type="Button" parent="HUD/TopMargin/TopRow/ButtonsCol"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(96, 52)
-layout_mode = 2
-text = "Pause"
-
-[node name="RestartButton" type="Button" parent="HUD/TopMargin/TopRow/ButtonsCol"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(96, 52)
-layout_mode = 2
-text = "Reset"
-
-[node name="DangerBannerWrap" type="CenterContainer" parent="HUD"]
-layout_mode = 1
-anchors_preset = 10
-anchor_right = 1.0
-offset_top = 158.0
-offset_bottom = 208.0
-grow_horizontal = 2
-mouse_filter = 2
-
-[node name="DangerBanner" type="PanelContainer" parent="HUD/DangerBannerWrap"]
+[node name="DangerBanner" type="PanelContainer" parent="HUD"]
 unique_name_in_owner = true
 visible = false
-layout_mode = 2
+layout_mode = 0
+offset_left = 220.0
+offset_top = 300.0
+offset_right = 500.0
+offset_bottom = 350.0
 mouse_filter = 2
 
-[node name="DangerLabel" type="Label" parent="HUD/DangerBannerWrap/DangerBanner"]
+[node name="DangerLabel" type="Label" parent="HUD/DangerBanner"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 20
-text = "OVERFLOW! 2.0s"
+text = "Too full! 2.0s"
 horizontal_alignment = 1
 
 [node name="BottomMargin" type="MarginContainer" parent="HUD"]
+unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 12
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_top = -112.0
+offset_top = -124.0
 grow_horizontal = 2
 grow_vertical = 0
 mouse_filter = 2
 theme_override_constants/margin_left = 18
-theme_override_constants/margin_top = 4
+theme_override_constants/margin_top = 0
 theme_override_constants/margin_right = 18
 theme_override_constants/margin_bottom = 18
 
-[node name="EvoBar" type="PanelContainer" parent="HUD/BottomMargin"]
+[node name="FruitGuide" type="PanelContainer" parent="HUD/BottomMargin"]
 unique_name_in_owner = true
 layout_mode = 2
+size_flags_vertical = 8
 mouse_filter = 2
-
-[node name="EvoStrip" type="HBoxContainer" parent="HUD/BottomMargin/EvoBar"]
-unique_name_in_owner = true
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 4
-alignment = 1
+script = ExtResource("4_guide")
 
 [node name="PauseOverlay" type="Control" parent="."]
 unique_name_in_owner = true
@@ -238,7 +239,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0.15, 0.1, 0.06, 0.55)
+color = Color(0.1, 0.16, 0.3, 0.6)
 
 [node name="PauseCenter" type="CenterContainer" parent="PauseOverlay"]
 layout_mode = 1
@@ -247,46 +248,60 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
 
 [node name="PauseCard" type="PanelContainer" parent="PauseOverlay/PauseCenter"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(460, 0)
+custom_minimum_size = Vector2(500, 0)
 layout_mode = 2
 
 [node name="PauseVBox" type="VBoxContainer" parent="PauseOverlay/PauseCenter/PauseCard"]
+unique_name_in_owner = true
 layout_mode = 2
-theme_override_constants/separation = 16
+theme_override_constants/separation = 14
 
 [node name="PauseTitle" type="Label" parent="PauseOverlay/PauseCenter/PauseCard/PauseVBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 36
-text = "PAUSED"
+text = "Paused"
 horizontal_alignment = 1
 
 [node name="ResumeButton" type="Button" parent="PauseOverlay/PauseCenter/PauseCard/PauseVBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 66)
+custom_minimum_size = Vector2(0, 92)
 layout_mode = 2
-text = "Resume"
+focus_mode = 0
 
 [node name="PauseRestartButton" type="Button" parent="PauseOverlay/PauseCenter/PauseCard/PauseVBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 58)
+custom_minimum_size = Vector2(0, 80)
 layout_mode = 2
-text = "Restart"
+focus_mode = 0
 
-[node name="PauseSoundButton" type="Button" parent="PauseOverlay/PauseCenter/PauseCard/PauseVBox"]
+[node name="PauseSmallRow" type="HBoxContainer" parent="PauseOverlay/PauseCenter/PauseCard/PauseVBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 58)
 layout_mode = 2
-text = "Sound: ON"
+theme_override_constants/separation = 12
+
+[node name="PauseSoundButton" type="Button" parent="PauseOverlay/PauseCenter/PauseCard/PauseVBox/PauseSmallRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 80)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+
+[node name="PausePowerUpsButton" type="Button" parent="PauseOverlay/PauseCenter/PauseCard/PauseVBox/PauseSmallRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 80)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
 
 [node name="PauseMenuButton" type="Button" parent="PauseOverlay/PauseCenter/PauseCard/PauseVBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 58)
+custom_minimum_size = Vector2(0, 80)
 layout_mode = 2
-text = "Main Menu"
+focus_mode = 0
 
 [node name="GameOverOverlay" type="Control" parent="."]
 unique_name_in_owner = true
@@ -299,13 +314,14 @@ grow_horizontal = 2
 grow_vertical = 2
 
 [node name="GameOverDim" type="ColorRect" parent="GameOverOverlay"]
+unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0.15, 0.1, 0.06, 0.62)
+color = Color(0.1, 0.16, 0.3, 0.62)
 
 [node name="GameOverCenter" type="CenterContainer" parent="GameOverOverlay"]
 layout_mode = 1
@@ -314,21 +330,21 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
 
 [node name="GameOverCard" type="PanelContainer" parent="GameOverOverlay/GameOverCenter"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(460, 0)
+custom_minimum_size = Vector2(540, 0)
 layout_mode = 2
 
 [node name="GameOverVBox" type="VBoxContainer" parent="GameOverOverlay/GameOverCenter/GameOverCard"]
 layout_mode = 2
-theme_override_constants/separation = 16
+theme_override_constants/separation = 12
 
 [node name="GameOverTitle" type="Label" parent="GameOverOverlay/GameOverCenter/GameOverCard/GameOverVBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 38
-text = "GAME OVER"
+text = "Jar's full!"
 horizontal_alignment = 1
 
 [node name="NewBestWrap" type="CenterContainer" parent="GameOverOverlay/GameOverCenter/GameOverCard/GameOverVBox"]
@@ -342,32 +358,67 @@ layout_mode = 2
 [node name="NewBestLabel" type="Label" parent="GameOverOverlay/GameOverCenter/GameOverCard/GameOverVBox/NewBestWrap/NewBestBadge"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 18
 text = "NEW BEST!"
 horizontal_alignment = 1
 
 [node name="FinalScoreLabel" type="Label" parent="GameOverOverlay/GameOverCenter/GameOverCard/GameOverVBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 30
-text = "Score: 0"
+text = "0"
 horizontal_alignment = 1
 
 [node name="FinalBestLabel" type="Label" parent="GameOverOverlay/GameOverCenter/GameOverCard/GameOverVBox"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 22
-text = "Best: 0"
+text = "Best 0"
+horizontal_alignment = 1
+
+[node name="RunCard" type="PanelContainer" parent="GameOverOverlay/GameOverCenter/GameOverCard/GameOverVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="RunVBox" type="VBoxContainer" parent="GameOverOverlay/GameOverCenter/GameOverCard/GameOverVBox/RunCard"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="RunTitle" type="Label" parent="GameOverOverlay/GameOverCenter/GameOverCard/GameOverVBox/RunCard/RunVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Biggest fruit"
+horizontal_alignment = 1
+
+[node name="RunFruitsRow" type="HBoxContainer" parent="GameOverOverlay/GameOverCenter/GameOverCard/GameOverVBox/RunCard/RunVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 2
+alignment = 1
+
+[node name="RunInfoLabel" type="Label" parent="GameOverOverlay/GameOverCenter/GameOverCard/GameOverVBox/RunCard/RunVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = ""
 horizontal_alignment = 1
 
 [node name="PlayAgainButton" type="Button" parent="GameOverOverlay/GameOverCenter/GameOverCard/GameOverVBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 68)
+custom_minimum_size = Vector2(0, 96)
 layout_mode = 2
-text = "Play Again"
+focus_mode = 0
 
 [node name="GameOverMenuButton" type="Button" parent="GameOverOverlay/GameOverCenter/GameOverCard/GameOverVBox"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 58)
+custom_minimum_size = Vector2(0, 80)
 layout_mode = 2
-text = "Main Menu"
+focus_mode = 0
+
+[node name="Toasts" type="Control" parent="."]
+unique_name_in_owner = true
+process_mode = 3
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("5_toast")

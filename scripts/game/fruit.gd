@@ -62,6 +62,7 @@ func _init() -> void:
 	add_child(_sprite)
 
 	_overlay = FruitPropertyOverlay.new()
+	_overlay.bind_target(_sprite)
 	add_child(_overlay)
 
 	_collision_shape = CollisionShape2D.new()
@@ -108,6 +109,14 @@ func activate(
 ) -> void:
 	if _scale_tween != null and _scale_tween.is_valid():
 		_scale_tween.kill()
+
+	# Pooled fruits sit frozen, and frozen bodies never get contact updates from the physics
+	# server, so the contact list still holds the neighbours from this fruit's previous life
+	# (somewhere deep in the jar). Without this reset, a freshly dropped fruit could "touch" a
+	# far-away fruit of the same level on its first tick and merge/stick with it instantly,
+	# which looked like the fruit teleporting instead of falling. Re-arming the monitor clears it.
+	contact_monitor = false
+	contact_monitor = true
 
 	is_stuck = false
 	has_used_sticky = false
@@ -180,19 +189,24 @@ func activate(
 		prev_top_y = maxf(danger_line_y, pos.y - radius)
 		_sprite.scale = Vector2(_base_sprite_scale * 0.55, _base_sprite_scale * 0.55)
 		if is_inside_tree():
-			_scale_tween = create_tween()
+			# Pop in with a quick white flash so every merge feels punchy.
+			_sprite.self_modulate = Color(2.4, 2.4, 2.4, 1.0)
+			_scale_tween = create_tween().set_parallel(true)
 			_scale_tween.tween_property(
 				_sprite,
 				"scale",
 				Vector2(_base_sprite_scale, _base_sprite_scale),
-				0.14
+				0.22
 			).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			_scale_tween.tween_property(_sprite, "self_modulate", Color.WHITE, 0.2)
 		else:
 			_sprite.scale = Vector2(_base_sprite_scale, _base_sprite_scale)
+			_sprite.self_modulate = Color.WHITE
 	else:
 		has_been_below_danger_line = false
 		prev_top_y = pos.y - radius
 		_sprite.scale = Vector2(_base_sprite_scale, _base_sprite_scale)
+		_sprite.self_modulate = Color.WHITE
 
 
 func finish_concrete_landing(normal_phys_mat: PhysicsMaterial) -> void:
@@ -217,6 +231,7 @@ func deactivate_to_pool() -> void:
 	if _scale_tween != null and _scale_tween.is_valid():
 		_scale_tween.kill()
 		_scale_tween = null
+	_sprite.self_modulate = Color.WHITE
 
 	in_pool = true
 	is_dropped = false

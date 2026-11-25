@@ -1,6 +1,6 @@
 extends Node
 
-## Central autoload providing the fruit catalog and single-atlas baked textures.
+## Central autoload providing the fruit catalog and the sprite-based fruit/power-up visuals.
 
 var catalog: FruitCatalog
 var textures: FruitTextureCache
@@ -11,12 +11,10 @@ func _ready() -> void:
 	textures = FruitTextureCache.new()
 
 
-func warm_up(host: Node) -> void:
-	if textures.is_baked():
-		return
-	await textures.bake_async(host, catalog)
+func warm_up(_host: Node = null) -> void:
+	ensure_textures_ready()
 
 
 func ensure_textures_ready() -> void:
 	if not textures.is_baked():
-		textures.bake_sync_fallback(catalog)
+		textures.build(catalog)

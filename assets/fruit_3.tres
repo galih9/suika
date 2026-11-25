@@ -1,0 +1,7 @@
+[gd_resource type="AtlasTexture" format=3 uid="uid://cuvahvvgrcs0t"]
+
+[ext_resource type="Texture2D" uid="uid://bw2qj0pxwweh5" path="res://assets/suika_fruits_spritesheet.png" id="1_6w30j"]
+
+[resource]
+atlas = ExtResource("1_6w30j")
+region = Rect2(28, 52, 14, 14)

@@ -1,59 +1,39 @@
 class_name FruitPropertyOverlay
-extends Node2D
+extends Sprite2D
 
-## Lightweight upright letter badge overlay indicating a fruit's Frenzy property.
+## Shows a fruit's Frenzy property using shared assets only:
+## - Bomb / Nuclear: the pixel-art power-up icon on top of the fruit.
+## - Sticky / Concrete / Charged: a shared tint + outline ShaderMaterial on the fruit sprite.
+## No per-frame _process, no Labels or StyleBoxes, so property fruits stay cheap.
+
+## The bomb icon starts blinking red during the last seconds of its fuse.
+const BOMB_BLINK_START := 3.0
+const BOMB_BLINK_COLOR := Color(1.0, 0.35, 0.35)
 
 var fruit_property: FruitProperty.Type = FruitProperty.Type.NONE
 var radius: float = 20.0
 var is_preview: bool = false
+var is_stuck: bool = false
+var concrete_landed: bool = false
 
 var bomb_timer: float = 0.0:
 	set(value):
 		bomb_timer = value
-		if fruit_property == FruitProperty.Type.BOMB and visible:
-			_refresh_label()
+		if fruit_property == FruitProperty.Type.BOMB and visible and not is_preview:
+			_update_bomb_blink()
 
-var is_stuck: bool = false:
-	set(value):
-		if is_stuck == value:
-			return
-		is_stuck = value
-		if fruit_property == FruitProperty.Type.STICKY and visible:
-			_refresh_label()
-
-var concrete_landed: bool = false:
-	set(value):
-		if concrete_landed == value:
-			return
-		concrete_landed = value
-		if fruit_property == FruitProperty.Type.CONCRETE and visible:
-			_refresh_appearance()
-
-var _label: Label
-var _badge_style: StyleBoxFlat
-var _last_text: String = ""
+var _target_sprite: CanvasItem
 
 
 func _init() -> void:
+	centered = true
 	visible = false
 	set_process(false)
 
-	_badge_style = StyleBoxFlat.new()
-	_badge_style.set_corner_radius_all(8)
-	_badge_style.set_border_width_all(2)
-	_badge_style.border_color = Color(1.0, 1.0, 1.0, 0.85)
-	_badge_style.content_margin_left = 6
-	_badge_style.content_margin_right = 6
-	_badge_style.content_margin_top = 2
-	_badge_style.content_margin_bottom = 2
 
-	_label = Label.new()
-	_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_label.add_theme_stylebox_override("normal", _badge_style)
-	_label.add_theme_color_override("font_color", Color.WHITE)
-	add_child(_label)
+## The fruit sprite that receives the tint/outline material.
+func bind_target(sprite: CanvasItem) -> void:
+	_target_sprite = sprite
 
 
 func reset() -> void:
@@ -63,11 +43,13 @@ func reset() -> void:
 	is_stuck = false
 	concrete_landed = false
 	is_preview = false
-	_last_text = ""
+	texture = null
 	rotation = 0.0
-	modulate = Color.WHITE
+	scale = Vector2.ONE
+	self_modulate = Color.WHITE
 	visible = false
-	set_process(false)
+	if _target_sprite != null:
+		_target_sprite.material = null
 
 
 func configure(prop: FruitProperty.Type, r: float, preview: bool = false) -> void:
@@ -75,47 +57,24 @@ func configure(prop: FruitProperty.Type, r: float, preview: bool = false) -> voi
 	radius = r
 	is_preview = preview
 	rotation = 0.0
-	visible = (prop != FruitProperty.Type.NONE)
-	set_process(visible and not preview)
+	self_modulate = Color.WHITE
 
-	if not visible:
-		_last_text = ""
+	if _target_sprite != null:
+		_target_sprite.material = FruitRegistry.textures.get_property_material(prop)
+
+	var icon := FruitRegistry.textures.get_property_icon(prop)
+	texture = icon
+	visible = icon != null
+	if icon != null:
+		# Integer pixel scale (2x..4x) keeps the 16px icon crisp on every fruit size.
+		var s := float(clampi(roundi(r / 16.0), 2, 4))
+		scale = Vector2(s, s)
+
+
+func _update_bomb_blink() -> void:
+	if bomb_timer > BOMB_BLINK_START or bomb_timer <= 0.0:
+		self_modulate = Color.WHITE
 		return
-
-	var font_sz := int(clampf(radius * 0.52, 11.0, 24.0))
-	_label.add_theme_font_size_override("font_size", font_sz)
-	_badge_style.bg_color = FruitProperty.get_accent_color(prop)
-	_last_text = ""
-	_refresh_appearance()
-	_refresh_label()
-
-
-func _process(_delta: float) -> void:
-	if not visible or is_preview:
-		return
-	var p := get_parent()
-	if p is Node2D:
-		var target_rot := -(p as Node2D).rotation
-		if not is_equal_approx(rotation, target_rot):
-			rotation = target_rot
-
-
-func _refresh_appearance() -> void:
-	if fruit_property == FruitProperty.Type.CONCRETE and concrete_landed:
-		modulate = Color(1.0, 1.0, 1.0, 0.45)
-	else:
-		modulate = Color.WHITE
-
-
-func _refresh_label() -> void:
-	var next_text := FruitProperty.get_letter(fruit_property)
-	if fruit_property == FruitProperty.Type.BOMB and not is_preview:
-		var t_str := "%.1f" % maxf(bomb_timer, 0.0) if bomb_timer < 2.0 else str(ceili(bomb_timer))
-		next_text = "B %s" % t_str
-
-	if _last_text == next_text:
-		return
-	_last_text = next_text
-	_label.text = next_text
-	_label.reset_size()
-	_label.position = -_label.size * 0.5
+	var period := lerpf(0.12, 0.5, bomb_timer / BOMB_BLINK_START)
+	var on := fmod(bomb_timer, period) < period * 0.5
+	self_modulate = BOMB_BLINK_COLOR if on else Color.WHITE

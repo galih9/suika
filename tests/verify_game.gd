@@ -18,11 +18,13 @@ func _run_all() -> void:
 
 	_test_scenes_load_and_instantiate()
 	_test_fruit_catalog_and_extension()
+	_test_sprite_assets_and_power_up_visuals()
 	_test_fruit_pool_reuse()
 	await _test_game_board_merge_logic()
 	await _test_spawn_progression_unlocks()
 	await _test_continuous_merge_sweep_and_clusters()
 	await _test_dropper_input_and_no_teleport()
+	await _test_no_stale_contact_teleport()
 	_test_danger_detector_rules()
 	await _test_modes_and_save_manager()
 	await _test_frenzy_sticky_property()
@@ -64,15 +66,12 @@ func _test_scenes_load_and_instantiate() -> void:
 func _test_fruit_catalog_and_extension() -> void:
 	var catalog := FruitCatalog.new()
 	var expected_names := [
-		"Kersen",
-		"Dukuh",
-		"Rambutan",
-		"Salak",
-		"Jambu Biji",
-		"Manggis",
-		"Kelapa",
+		"Blueberry", "Cherry", "Strawberry", "Grape", "Kiwi",
+		"Lime", "Orange", "Persimmon", "Apple", "Pear",
+		"Peach", "Dragonfruit", "Pineapple", "Melon", "Watermelon",
 	]
-	_assert(catalog.get_count() == 7, "Expected 7 default fruits, got %d" % catalog.get_count())
+	var expected_px := [10, 12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 44, 48, 56, 64]
+	_assert(catalog.get_count() == 15, "Expected 15 default fruits, got %d" % catalog.get_count())
 
 	var prev_radius := 0.0
 	for i in range(expected_names.size()):
@@ -81,10 +80,14 @@ func _test_fruit_catalog_and_extension() -> void:
 		if def != null:
 			_assert(def.display_name == expected_names[i], "Expected %s at %d, got %s" % [expected_names[i], i, def.display_name])
 			_assert(def.radius > prev_radius, "Radius did not strictly increase at level %d" % i)
+			_assert(is_equal_approx(def.radius, float(expected_px[i]) * 2.0), "Radius at level %d should be 2x its %dpx sprite" % [i, expected_px[i]])
+			_assert(def.texture is AtlasTexture, "Fruit %s must use its spritesheet AtlasTexture" % def.display_name)
+			if def.texture is AtlasTexture:
+				_assert(int((def.texture as AtlasTexture).region.size.x) == expected_px[i], "Sprite region for %s should be %dpx wide" % [def.display_name, expected_px[i]])
 			prev_radius = def.radius
 
-	_assert(is_equal_approx(catalog.get_fruit(6).radius, 126.0), "Expected Kelapa radius 126.0")
-	_assert(not catalog.has_next_level(6), "Kelapa (6) should be max level before extension")
+	_assert(is_equal_approx(catalog.get_fruit(14).radius, 128.0), "Expected Watermelon radius 128.0")
+	_assert(not catalog.has_next_level(14), "Watermelon (14) should be max level before extension")
 
 	# Verify unlock-filtered spawn selection never returns locked levels
 	var rng := RandomNumberGenerator.new()
@@ -93,16 +96,16 @@ func _test_fruit_catalog_and_extension() -> void:
 		_assert(catalog.pick_spawn_level_for_unlocked(rng, {0: true}) == 0, "Only level 0 unlocked must always pick 0")
 	var picked_set := {}
 	for _i in range(60):
-		var lvl := catalog.pick_spawn_level_for_unlocked(rng, {0: true, 1: true, 4: true, 5: true, 6: true})
-		_assert(lvl == 0 or lvl == 1, "Unlocked filter must never pick non-droppable levels (4..6) or locked (2..3), got %d" % lvl)
+		var lvl := catalog.pick_spawn_level_for_unlocked(rng, {0: true, 1: true, 5: true, 6: true, 14: true})
+		_assert(lvl == 0 or lvl == 1, "Unlocked filter must never pick non-droppable levels (5+) or locked (2..4), got %d" % lvl)
 		picked_set[lvl] = true
 	_assert(picked_set.has(1), "Unlocked droppable level 1 should appear in spawn pool")
 
-	# Test extending catalog with an 8th fruit (level 7)
+	# Test extending catalog with a 16th fruit (level 15)
 	var durian := FruitDefinition.new()
 	durian.id = &"durian"
 	durian.display_name = "Durian"
-	durian.level = 7
+	durian.level = 15
 	durian.radius = 152.0
 	durian.score = 36
 	durian.mass = 16.0
@@ -112,9 +115,43 @@ func _test_fruit_catalog_and_extension() -> void:
 	durian.outline_color = Color("#33691E")
 	catalog.register_fruit(durian)
 
-	_assert(catalog.get_count() == 8, "Expected 8 fruits after register_fruit")
-	_assert(catalog.has_next_level(6), "Expected has_next_level(6) == true after extending to 8 fruits")
-	_assert(catalog.get_fruit(7).display_name == "Durian", "Expected Durian at level 7")
+	_assert(catalog.get_count() == 16, "Expected 16 fruits after register_fruit")
+	_assert(catalog.has_next_level(14), "Expected has_next_level(14) == true after extending to 16 fruits")
+	_assert(catalog.get_fruit(15).display_name == "Durian", "Expected Durian at level 15")
+
+
+func _test_sprite_assets_and_power_up_visuals() -> void:
+	FruitRegistry.ensure_textures_ready()
+	var textures := FruitRegistry.textures
+	var catalog := FruitRegistry.catalog
+	for i in range(catalog.get_count()):
+		_assert(textures.get_texture(i) != null, "Missing sprite texture for level %d" % i)
+		_assert(is_equal_approx(textures.get_sprite_scale(i), 4.0), "Level %d sprite should render at 4x pixel scale, got %f" % [i, textures.get_sprite_scale(i)])
+
+	_assert(textures.get_property_icon(FruitProperty.Type.BOMB) != null, "Bomb must use its icon asset")
+	_assert(textures.get_property_icon(FruitProperty.Type.NUCLEAR) != null, "Nuclear must use its icon asset")
+	for prop in [FruitProperty.Type.STICKY, FruitProperty.Type.CONCRETE, FruitProperty.Type.CHARGED]:
+		_assert(textures.get_property_icon(prop) == null, "%s should not use an icon" % FruitProperty.get_display_name(prop))
+		_assert(textures.get_property_material(prop) != null, "%s must use the tint/outline material" % FruitProperty.get_display_name(prop))
+	_assert(textures.get_property_material(FruitProperty.Type.NONE) == null, "Plain fruits must not get a material")
+	_assert(
+		textures.get_property_material(FruitProperty.Type.STICKY) != textures.get_property_material(FruitProperty.Type.CHARGED),
+		"Each tinted property needs its own shared material"
+	)
+
+	# A pooled fruit picks up / drops the visuals when configured and returned to the pool.
+	var fruit := Fruit.new()
+	add_child(fruit)
+	var def0 := catalog.get_fruit(0)
+	fruit.configure(def0, catalog.get_shape(0), textures.get_texture(0), catalog.get_physics_material(), textures.get_sprite_scale(0), FruitProperty.Type.CHARGED)
+	_assert(fruit._sprite.material == textures.get_property_material(FruitProperty.Type.CHARGED), "Charged fruit sprite must use the blue material")
+	_assert(not fruit._overlay.visible, "Charged fruit must not show an icon")
+	fruit.configure(def0, catalog.get_shape(0), textures.get_texture(0), catalog.get_physics_material(), textures.get_sprite_scale(0), FruitProperty.Type.BOMB)
+	_assert(fruit._sprite.material == null, "Bomb fruit sprite must not keep a tint material")
+	_assert(fruit._overlay.visible and fruit._overlay.texture == textures.get_property_icon(FruitProperty.Type.BOMB), "Bomb fruit must show the bomb icon")
+	fruit.deactivate_to_pool()
+	_assert(not fruit._overlay.visible and fruit._sprite.material == null, "Pooled fruit must clear property visuals")
+	fruit.free()
 
 
 func _test_fruit_pool_reuse() -> void:
@@ -179,13 +216,13 @@ func _test_game_board_merge_logic() -> void:
 	await get_tree().process_frame
 
 	_assert(board.fruit_pool.active_fruits.size() == 1, "Duplicate contact must produce exactly 1 merged fruit, got %d" % board.fruit_pool.active_fruits.size())
-	_assert(board.score == def1.score, "Expected score %d after Kersen merge, got %d" % [def1.score, board.score])
+	_assert(board.score == def1.score, "Expected score %d after Blueberry merge, got %d" % [def1.score, board.score])
 	if board.fruit_pool.active_fruits.size() == 1:
 		var merged := board.fruit_pool.active_fruits[0]
-		_assert(merged.level == 1, "Merged fruit should be level 1 (Dukuh)")
+		_assert(merged.level == 1, "Merged fruit should be level 1 (Cherry)")
 		_assert(a.in_pool and b.in_pool and merged != a and merged != b, "Quarantined source fruits must stay in pool and not be reused on same frame")
 
-	# Test max-level merge bonus (2 Kelapas)
+	# Test max-level merge bonus (2 Watermelons)
 	board.reset_game()
 	var max_lvl := catalog.get_count() - 1
 	var max_def := catalog.get_fruit(max_lvl)
@@ -210,22 +247,22 @@ func _test_spawn_progression_unlocks() -> void:
 	add_child(board)
 	await get_tree().process_frame
 
-	# Empty box: strictly level 0 (Kersen) for both current and next
-	_assert(board.current_level == 0, "Empty box must start with current_level 0 (Kersen), got %d" % board.current_level)
-	_assert(board.next_level == 0, "Empty box must start with next_level 0 (Kersen), got %d" % board.next_level)
+	# Empty box: strictly level 0 (Blueberry) for both current and next
+	_assert(board.current_level == 0, "Empty box must start with current_level 0 (Blueberry), got %d" % board.current_level)
+	_assert(board.next_level == 0, "Empty box must start with next_level 0 (Blueberry), got %d" % board.next_level)
 	_assert(board.spawn_progression.is_level_unlocked(0), "Level 0 should be unlocked initially")
-	_assert(not board.spawn_progression.is_level_unlocked(1), "Level 1 (Dukuh) must start locked")
+	_assert(not board.spawn_progression.is_level_unlocked(1), "Level 1 (Cherry) must start locked")
 
 	# Dropping fruits without merging must only produce level 0
 	for i in range(6):
 		board._on_drop_requested(float(i * 40 - 100))
 		board.dropper.cooldown_timer = 0.0
 		board.dropper.has_held_fruit = true
-		_assert(board.current_level == 0 and board.next_level == 0, "Before any merge, only Kersen (0) can be queued")
+		_assert(board.current_level == 0 and board.next_level == 0, "Before any merge, only Blueberry (0) can be queued")
 	for f in board.fruit_pool.active_fruits:
 		_assert(f.level == 0, "Dropped fruit before any merge must be level 0, got %d" % f.level)
 
-	# Merging two level-0 fruits unlocks level 1 (Dukuh), while level 2 remains locked
+	# Merging two level-0 fruits unlocks level 1 (Cherry), while level 2 remains locked
 	board.reset_game()
 	var catalog := FruitRegistry.catalog
 	var def0 := catalog.get_fruit(0)
@@ -238,13 +275,13 @@ func _test_spawn_progression_unlocks() -> void:
 	board._on_fruit_merge_contact(a, b)
 	await get_tree().process_frame
 
-	_assert(board.spawn_progression.is_level_unlocked(1), "Merging two Kersens must unlock level 1 (Dukuh)")
-	_assert(not board.spawn_progression.is_level_unlocked(2), "Level 2 (Rambutan) must stay locked until merged")
+	_assert(board.spawn_progression.is_level_unlocked(1), "Merging two Blueberries must unlock level 1 (Cherry)")
+	_assert(not board.spawn_progression.is_level_unlocked(2), "Level 2 (Strawberry) must stay locked until merged")
 
-	# Even if higher non-droppable levels (4..6) are unlocked, they must never drop
-	board.spawn_progression.unlock_level(4)
+	# Even if higher non-droppable levels (5+) are unlocked, they must never drop
 	board.spawn_progression.unlock_level(5)
 	board.spawn_progression.unlock_level(6)
+	board.spawn_progression.unlock_level(7)
 	for _i in range(30):
 		board._on_drop_requested(0.0)
 		board.dropper.cooldown_timer = 0.0
@@ -295,7 +332,7 @@ func _test_continuous_merge_sweep_and_clusters() -> void:
 	board._process_merge_queue()
 	_assert(board.fruit_pool.active_fruits.size() == 2, "3-way cluster must produce 2 fruits (1 merged + 1 leftover), got %d" % board.fruit_pool.active_fruits.size())
 
-	# 3. Live physics drop of two Kersens at identical X must fall, collide, and merge
+	# 3. Live physics drop of two Blueberries at identical X must fall, collide, and merge
 	board.reset_game()
 	board._on_drop_requested(0.0)
 	for _i in range(45):
@@ -309,7 +346,7 @@ func _test_continuous_merge_sweep_and_clusters() -> void:
 		if board.fruit_pool.active_fruits.size() == 1 and board.fruit_pool.active_fruits[0].level == 1:
 			merged_live = true
 			break
-	_assert(merged_live, "Two dropped Kersens at same X must collide and merge into Dukuh in live physics")
+	_assert(merged_live, "Two dropped Blueberries at same X must collide and merge into Cherry in live physics")
 
 	board.queue_free()
 
@@ -380,6 +417,38 @@ func _test_dropper_input_and_no_teleport() -> void:
 	r3.position = Vector2(360.0, 400.0)
 	board._unhandled_input(r3)
 	_assert(board.fruit_pool.active_fruits.size() == count_before, "Cancelled drag must not drop on release")
+
+	board.queue_free()
+
+
+func _test_no_stale_contact_teleport() -> void:
+	var board := GameBoard.new()
+	add_child(board)
+	await get_tree().process_frame
+
+	# 1. A contact between far-apart same-level fruits (e.g. stale data on a recycled body)
+	#    must never merge them.
+	var far_a := _spawn_test_fruit(board, 0, Vector2(-200.0, 780.0))
+	var far_b := _spawn_test_fruit(board, 0, Vector2(200.0, 780.0))
+	board._on_fruit_merge_contact(far_a, far_b)
+	await get_tree().process_frame
+	_assert(not far_a.in_pool and not far_b.in_pool, "Far-apart fruits must not merge from a stale contact")
+	_assert(board.fruit_pool.active_fruits.size() == 2, "Stale contact must not spawn a merged fruit")
+
+	# 2. A recycled pool body must start with an empty contact list.
+	board.reset_game()
+	var settled := _spawn_test_fruit(board, 0, Vector2(0.0, JarContainer.FLOOR_Y - 20.0))
+	var neighbour := _spawn_test_fruit(board, 1, Vector2(0.0, JarContainer.FLOOR_Y - 20.0 - 44.0))
+	for _i in range(20):
+		await get_tree().physics_frame
+	board.fruit_pool.release(settled)
+	for _i in range(3):
+		await get_tree().physics_frame
+	var recycled := _spawn_test_fruit(board, 0, Vector2(120.0, GameBoard.DROP_Y))
+	_assert(recycled.get_colliding_bodies().is_empty(), "Re-activated fruit must not keep contacts from its previous life")
+	await get_tree().physics_frame
+	_assert(not recycled.in_pool and recycled.position.y < 200.0, "Freshly dropped fruit must fall from the top, not teleport (y=%f)" % recycled.position.y)
+	_assert(not neighbour.in_pool, "Untouched neighbour must stay in place")
 
 	board.queue_free()
 
@@ -488,7 +557,7 @@ func _spawn_test_fruit(
 		catalog.get_shape(lvl),
 		FruitRegistry.textures.get_texture(lvl),
 		catalog.get_physics_material_for_property(prop),
-		FruitRegistry.textures.get_sprite_scale_for_radius(def.radius),
+		FruitRegistry.textures.get_sprite_scale(lvl),
 		prop
 	)
 	f.activate(pos, lin_vel, false, GameBoard.DANGER_LINE_Y, false)
@@ -613,7 +682,7 @@ func _test_frenzy_sticky_property() -> void:
 	_assert(angle_drift < 0.25, "Sticky fruit must not orbit around contact point (angle_drift=%f)" % angle_drift)
 
 	# Merge base_a with another level-1 fruit -> sticky_top must detach cleanly without crashing
-	var base_b := _spawn_test_fruit(board, 1, base_a.position + Vector2(54.0, 0.0), FruitProperty.Type.NONE)
+	var base_b := _spawn_test_fruit(board, 1, base_a.position + Vector2(base_a.radius * 2.0 - 2.0, 0.0), FruitProperty.Type.NONE)
 	board._on_fruit_merge_contact(base_a, base_b)
 	await get_tree().process_frame
 	_assert(not sticky_top.is_stuck and sticky_top.stuck_target == null, "Sticky fruit must detach cleanly when its target fruit merges")

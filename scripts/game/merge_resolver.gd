@@ -5,6 +5,9 @@ extends RefCounted
 ## crowded/sleeping pairs never miss merges, and spawns upgraded fruits safely.
 
 const MERGE_CONTACT_EPSILON := 1.5
+## Extra slack allowed for contacts reported by the physics engine (it reports contacts
+## slightly before the circles overlap). Anything farther apart than this is a stale contact.
+const MAX_CONTACT_GAP := 6.0
 const WAKE_RADIUS_PADDING := 96.0
 
 var _pending_merges: Array[Array] = []
@@ -41,6 +44,10 @@ func enqueue_contact(a: Fruit, b: Fruit) -> bool:
 		return false
 	if a.level != b.level:
 		return false
+	# Only merge fruits that are really touching. Guards against stale/old physics contacts,
+	# which used to merge a freshly dropped fruit with one far away (the "teleport" bug).
+	if not are_touching(a, b):
+		return false
 
 	var id_a := a.get_instance_id()
 	var id_b := b.get_instance_id()
@@ -53,6 +60,11 @@ func enqueue_contact(a: Fruit, b: Fruit) -> bool:
 	_queued_ids[id_b] = true
 	_pending_merges.append([a, b])
 	return true
+
+
+static func are_touching(a: Fruit, b: Fruit) -> bool:
+	var reach := a.radius + b.radius + MAX_CONTACT_GAP
+	return a.position.distance_squared_to(b.position) <= reach * reach
 
 
 func scan_active_contacts(active_fruits: Array[Fruit]) -> bool:
@@ -94,7 +106,7 @@ func scan_active_contacts(active_fruits: Array[Fruit]) -> bool:
 func process_queue(pool: FruitPool, jar: JarContainer, effects: MergeEffects) -> Dictionary:
 	_flush_scheduled = false
 	if _pending_merges.is_empty():
-		return {"gained_score": 0, "unlocked_levels": [], "nuclear_blasts": []}
+		return {"gained_score": 0, "unlocked_levels": [], "nuclear_blasts": [], "merges": []}
 
 	var batch := _pending_merges.duplicate()
 	_pending_merges.clear()
@@ -104,6 +116,8 @@ func process_queue(pool: FruitPool, jar: JarContainer, effects: MergeEffects) ->
 	var gained_total := 0
 	var unlocked_levels: Array[int] = []
 	var nuclear_blasts: Array[Dictionary] = []
+	# One entry per merge for UI/FX: {"level", "position", "points", "is_max_bonus"}.
+	var merges: Array[Dictionary] = []
 
 	for pair in batch:
 		if pair.size() != 2:
@@ -140,7 +154,7 @@ func process_queue(pool: FruitPool, jar: JarContainer, effects: MergeEffects) ->
 				catalog.get_shape(next_lvl),
 				FruitRegistry.textures.get_texture(next_lvl),
 				catalog.get_physics_material(),
-				FruitRegistry.textures.get_sprite_scale_for_radius(next_def.radius),
+				FruitRegistry.textures.get_sprite_scale(next_lvl),
 				FruitProperty.Type.NONE
 			)
 			merged_fruit.activate(clamped_pos, avg_vel, true, JarContainer.DANGER_LINE_Y, parent_was_below)
@@ -151,24 +165,45 @@ func process_queue(pool: FruitPool, jar: JarContainer, effects: MergeEffects) ->
 			gained_total += next_def.score
 			unlocked_levels.append(next_lvl)
 			wake_radius += next_def.radius
+			merges.append({
+				"level": next_lvl,
+				"position": clamped_pos,
+				"points": next_def.score,
+				"is_max_bonus": false,
+			})
 			AudioManager.play_merge(next_lvl)
 			if effects != null:
-				effects.spawn_merge_burst(clamped_pos, next_def.radius, next_def.primary_color, false)
+				effects.spawn_merge_burst(
+					clamped_pos,
+					next_def.radius,
+					next_def.primary_color,
+					false,
+					next_lvl,
+					FruitRegistry.textures.get_palette(next_lvl)
+				)
 		else:
-			# Two max-level fruits (e.g. Kelapa + Kelapa) merge into a bonus burst.
+			# Two max-level fruits (e.g. Watermelon + Watermelon) merge into a bonus burst.
 			var max_def := catalog.get_fruit(merged_level)
 			var bonus := catalog.get_max_merge_bonus(merged_level)
-			var burst_radius := max_def.radius if max_def != null else 126.0
+			var burst_radius := max_def.radius if max_def != null else 128.0
 			blast_base_radius = burst_radius
 			gained_total += bonus
 			wake_radius += burst_radius
+			merges.append({
+				"level": merged_level,
+				"position": midpoint,
+				"points": bonus,
+				"is_max_bonus": true,
+			})
 			AudioManager.play_merge(merged_level + 1)
 			if effects != null:
 				effects.spawn_merge_burst(
 					midpoint,
 					burst_radius,
 					max_def.primary_color if max_def != null else Color.GOLD,
-					true
+					true,
+					merged_level,
+					FruitRegistry.textures.get_palette(merged_level)
 				)
 
 		if trigger_nuclear:
@@ -184,6 +219,7 @@ func process_queue(pool: FruitPool, jar: JarContainer, effects: MergeEffects) ->
 		"gained_score": gained_total,
 		"unlocked_levels": unlocked_levels,
 		"nuclear_blasts": nuclear_blasts,
+		"merges": merges,
 	}
 
 

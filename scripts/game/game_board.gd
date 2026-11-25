@@ -6,6 +6,11 @@ extends Node2D
 signal score_changed(score: int, best_score: int, delta_points: int)
 signal next_fruit_changed(next_level: int, next_property: int)
 signal fruit_unlocked(level: int)
+## Same as fruit_unlocked, plus where (board-local) the new fruit appeared. Used for UI fly-ins.
+signal fruit_unlocked_at(level: int, local_pos: Vector2)
+## Emitted for every merge. level = the new fruit's level (or the max level for a bonus merge).
+signal fruit_merged(level: int, local_pos: Vector2, points: int, is_max_bonus: bool)
+signal explosion_triggered(local_pos: Vector2, blast_radius: float, is_nuclear: bool)
 signal danger_changed(is_triggered: bool, progress: float)
 signal game_over(final_score: int, is_new_best: bool)
 
@@ -182,11 +187,14 @@ func _on_drop_requested(spawn_x: float) -> void:
 	current_property = next_property
 	next_property = _pick_property_for_mode()
 
-	dropper.start_cooldown()
-
 	var clamped_x := jar.clamp_drop_x(spawn_x, def.radius)
 	drop_x = clamped_x
 	dropper.drop_x = clamped_x
+
+	# Show the next fruit right away (dimmed until the cooldown ends) so the player always sees
+	# what they are aiming; a tap during the cooldown is queued and drops from the preview spot.
+	dropper.start_cooldown()
+	dropper.show_held_fruit(current_level, jar, current_property)
 
 	var fruit := fruit_pool.acquire()
 	fruit.configure(
@@ -194,7 +202,7 @@ func _on_drop_requested(spawn_x: float) -> void:
 		catalog.get_shape(dropped_level),
 		FruitRegistry.textures.get_texture(dropped_level),
 		catalog.get_physics_material_for_property(dropped_property),
-		FruitRegistry.textures.get_sprite_scale_for_radius(def.radius),
+		FruitRegistry.textures.get_sprite_scale(dropped_level),
 		dropped_property
 	)
 	fruit.activate(Vector2(clamped_x, JarContainer.DROP_Y), Vector2(0.0, 40.0), false, JarContainer.DANGER_LINE_Y, false)
@@ -217,10 +225,16 @@ func _schedule_merge_flush() -> void:
 
 func _process_merge_queue() -> void:
 	var result := merge_resolver.process_queue(fruit_pool, jar, merge_effects)
-	var unlocked: Array = result.get("unlocked_levels", [])
-	for lvl in unlocked:
-		if spawn_progression.unlock_level(int(lvl)):
-			fruit_unlocked.emit(int(lvl))
+	var merges: Array = result.get("merges", [])
+	for m in merges:
+		var info: Dictionary = m
+		var lvl := int(info.get("level", 0))
+		var pos: Vector2 = info.get("position", Vector2.ZERO)
+		var is_bonus := bool(info.get("is_max_bonus", false))
+		fruit_merged.emit(lvl, pos, int(info.get("points", 0)), is_bonus)
+		if not is_bonus and spawn_progression.unlock_level(lvl):
+			fruit_unlocked.emit(lvl)
+			fruit_unlocked_at.emit(lvl, pos)
 
 	var gained := int(result.get("gained_score", 0))
 	if gained > 0:
@@ -340,6 +354,7 @@ func _trigger_explosion(center: Vector2, blast_radius: float, is_nuclear: bool, 
 				fruit.apply_central_impulse(dir * strength * fruit.mass)
 
 	merge_effects.spawn_explosion_burst(center, blast_radius, is_nuclear)
+	explosion_triggered.emit(center, blast_radius, is_nuclear)
 	if is_nuclear:
 		AudioManager.play_nuclear_explode()
 	else:
@@ -423,6 +438,12 @@ func _process_pending_sticky() -> void:
 			continue
 
 		if target.is_in_group(&"jar_wall") or target.is_in_group(&"jar_floor"):
+			# Ignore stale wall/floor contacts: the fruit must really be against a wall or the floor.
+			var near_wall := absf(fruit.position.x) + fruit.radius >= JarContainer.INNER_HALF_WIDTH - 8.0
+			var near_floor := fruit.position.y + fruit.radius >= JarContainer.FLOOR_Y - 8.0
+			if not near_wall and not near_floor:
+				fruit.has_used_sticky = false
+				continue
 			fruit.linear_velocity = Vector2.ZERO
 			fruit.angular_velocity = 0.0
 			fruit.freeze_mode = RigidBody2D.FREEZE_MODE_STATIC
@@ -453,6 +474,10 @@ func _process_pending_sticky() -> void:
 			var delta_pos := fruit.position - other.position
 			var normal := delta_pos.normalized() if delta_pos.length_squared() > 0.001 else Vector2.UP
 			var contact_dist := fruit.radius + other.radius
+			if delta_pos.length() > contact_dist + 12.0:
+				# Not actually touching (stale contact): never snap a fruit across the jar.
+				fruit.has_used_sticky = false
+				continue
 			if delta_pos.length() > contact_dist + 1.5:
 				fruit.position = jar.clamp_merge_position(other.position + normal * contact_dist, fruit.radius)
 				if fruit.is_inside_tree():

@@ -1,6 +1,7 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://bllln3wn22527"]
 
-[ext_resource type="Script" path="res://scenes/boot/boot.gd" id="1_boot"]
+[ext_resource type="Script" uid="uid://by6kd2s06r2r6" path="res://scenes/boot/boot.gd" id="1_boot"]
+[ext_resource type="Script" path="res://scripts/ui/casual_background.gd" id="2_bg"]
 
 [node name="BootScene" type="Control"]
 layout_mode = 3
@@ -11,14 +12,15 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_boot")
 
-[node name="Background" type="ColorRect" parent="."]
+[node name="Background" type="Control" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(1, 0.972549, 0.933333, 1)
+mouse_filter = 2
+script = ExtResource("2_bg")
 
 [node name="Center" type="CenterContainer" parent="."]
 layout_mode = 1
@@ -27,51 +29,46 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+mouse_filter = 2
 
-[node name="SplashCard" type="PanelContainer" parent="Center"]
+[node name="SplashCard" type="VBoxContainer" parent="Center"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(480, 0)
+custom_minimum_size = Vector2(560, 0)
 layout_mode = 2
-
-[node name="VBox" type="VBoxContainer" parent="Center/SplashCard"]
-layout_mode = 2
-theme_override_constants/separation = 16
+mouse_filter = 2
+theme_override_constants/separation = 10
 alignment = 1
 
-[node name="BadgeWrap" type="CenterContainer" parent="Center/SplashCard/VBox"]
+[node name="BadgeWrap" type="CenterContainer" parent="Center/SplashCard"]
+custom_minimum_size = Vector2(0, 200)
 layout_mode = 2
+mouse_filter = 2
 
-[node name="BadgePanel" type="PanelContainer" parent="Center/SplashCard/VBox/BadgeWrap"]
+[node name="BadgeIcon" type="TextureRect" parent="Center/SplashCard/BadgeWrap"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(128, 128)
+texture_filter = 1
+custom_minimum_size = Vector2(168, 168)
 layout_mode = 2
-
-[node name="BadgeIcon" type="TextureRect" parent="Center/SplashCard/VBox/BadgeWrap/BadgePanel"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(88, 88)
-layout_mode = 2
+mouse_filter = 2
 expand_mode = 1
 stretch_mode = 5
 
-[node name="TitleLabel" type="Label" parent="Center/SplashCard/VBox"]
+[node name="TitleLabel" type="Label" parent="Center/SplashCard"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 44
-text = "BUAH MERGE"
+text = "Fruity-zer"
 horizontal_alignment = 1
 
-[node name="SubtitleLabel" type="Label" parent="Center/SplashCard/VBox"]
+[node name="SubtitleLabel" type="Label" parent="Center/SplashCard"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 22
-text = "Nusantara Fruit Suika"
+text = "A juicy fruit merging game"
 horizontal_alignment = 1
 
-[node name="StatusLabel" type="Label" parent="Center/SplashCard/VBox"]
+[node name="StatusLabel" type="Label" parent="Center/SplashCard"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_font_sizes/font_size = 20
-text = "Preparing orchard..."
+text = "Washing the fruits..."
 horizontal_alignment = 1
 
 [node name="VersionLabel" type="Label" parent="."]
@@ -82,12 +79,11 @@ anchor_left = 0.5
 anchor_top = 1.0
 anchor_right = 0.5
 anchor_bottom = 1.0
-offset_left = -80.0
-offset_top = -52.0
-offset_right = 80.0
-offset_bottom = -20.0
+offset_left = -120.0
+offset_top = -64.0
+offset_right = 120.0
+offset_bottom = -24.0
 grow_horizontal = 2
 grow_vertical = 0
-theme_override_font_sizes/font_size = 18
-text = "v1.0"
+text = "v1.1"
 horizontal_alignment = 1

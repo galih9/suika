@@ -95,42 +95,62 @@ func is_in_play_zone(local_pos: Vector2) -> bool:
 
 
 func _draw() -> void:
-	var outer_pad := 14.0
+	var ci := get_canvas_item()
+	var frame := 16.0
 	var inner_rect := Rect2(-INNER_HALF_WIDTH, JAR_TOP_Y, INNER_HALF_WIDTH * 2.0, FLOOR_Y - JAR_TOP_Y)
-	var outer_rect := Rect2(
-		-INNER_HALF_WIDTH - outer_pad,
-		JAR_TOP_Y - 6.0,
-		INNER_HALF_WIDTH * 2.0 + outer_pad * 2.0,
-		FLOOR_Y - JAR_TOP_Y + outer_pad + 6.0
-	)
+	var outer_rect := inner_rect.grow_individual(frame, 4.0, frame, frame)
 
-	# Warm wooden outer frame
-	draw_rect(outer_rect, Color("#D7B892"), true)
-	draw_rect(outer_rect, Color("#A4794E"), false, 4.0)
+	# Soft drop shadow under the jar.
+	var shadow := StyleBoxFlat.new()
+	shadow.bg_color = Color(0.12, 0.32, 0.45, 0.18)
+	shadow.set_corner_radius_all(34)
+	shadow.draw(ci, Rect2(outer_rect.position + Vector2(0.0, 14.0), outer_rect.size))
 
-	# Inner translucent cream glass interior
-	draw_rect(inner_rect, Color("#FFFDF8"), true)
+	# Chunky white frame with a blue "lip" at the bottom (matches the UI cards).
+	var frame_sb := StyleBoxFlat.new()
+	frame_sb.bg_color = Color("#FFFFFF")
+	frame_sb.border_color = Color("#9ED3E8")
+	frame_sb.border_width_bottom = 10
+	frame_sb.corner_radius_top_left = 12
+	frame_sb.corner_radius_top_right = 12
+	frame_sb.corner_radius_bottom_left = 34
+	frame_sb.corner_radius_bottom_right = 34
+	frame_sb.draw(ci, outer_rect)
 
-	# Subtle side highlight strips inside jar
-	draw_rect(
-		Rect2(-INNER_HALF_WIDTH + 6.0, JAR_TOP_Y + 8.0, 10.0, FLOOR_Y - JAR_TOP_Y - 16.0),
-		Color(1.0, 0.96, 0.88, 0.85),
-		true
-	)
-	draw_rect(
-		Rect2(INNER_HALF_WIDTH - 16.0, JAR_TOP_Y + 8.0, 10.0, FLOOR_Y - JAR_TOP_Y - 16.0),
-		Color(0.95, 0.89, 0.80, 0.55),
-		true
-	)
+	# Cream interior.
+	var inner_sb := StyleBoxFlat.new()
+	inner_sb.bg_color = Color("#FFF8EC")
+	inner_sb.border_color = Color("#F0E2CC")
+	inner_sb.set_border_width_all(0)
+	inner_sb.border_width_top = 0
+	inner_sb.corner_radius_bottom_left = 22
+	inner_sb.corner_radius_bottom_right = 22
+	inner_sb.draw(ci, inner_rect)
 
-	# Lip accents at top opening
-	draw_rect(
-		Rect2(-INNER_HALF_WIDTH - outer_pad - 6.0, JAR_TOP_Y - 12.0, outer_pad + 12.0, 18.0),
-		Color("#C49A6C"),
-		true
-	)
-	draw_rect(
-		Rect2(INNER_HALF_WIDTH - 6.0, JAR_TOP_Y - 12.0, outer_pad + 12.0, 18.0),
-		Color("#C49A6C"),
-		true
-	)
+	# Subtle checker "tablecloth" pattern on the floor area, pixel style.
+	var tile := 16.0
+	var floor_band := 48.0
+	var y := FLOOR_Y - floor_band
+	var row := 0
+	while y < FLOOR_Y - 8.0:
+		var x := -INNER_HALF_WIDTH + 12.0 + (tile if row % 2 == 1 else 0.0)
+		while x < INNER_HALF_WIDTH - 12.0:
+			draw_rect(Rect2(x, y, tile, tile), Color(1.0, 0.86, 0.72, 0.35))
+			x += tile * 2.0
+		y += tile
+		row += 1
+
+	# Glass highlights (pixel strips) on the walls.
+	draw_rect(Rect2(-INNER_HALF_WIDTH + 8.0, JAR_TOP_Y + 12.0, 8.0, FLOOR_Y - JAR_TOP_Y - 80.0), Color(1.0, 1.0, 1.0, 0.75))
+	draw_rect(Rect2(-INNER_HALF_WIDTH + 20.0, JAR_TOP_Y + 12.0, 4.0, 120.0), Color(1.0, 1.0, 1.0, 0.6))
+	draw_rect(Rect2(INNER_HALF_WIDTH - 16.0, JAR_TOP_Y + 40.0, 8.0, FLOOR_Y - JAR_TOP_Y - 120.0), Color(0.85, 0.93, 0.97, 0.45))
+
+	# Rounded lip caps on top of each wall.
+	var cap := StyleBoxFlat.new()
+	cap.bg_color = Color("#FFFFFF")
+	cap.border_color = Color("#9ED3E8")
+	cap.border_width_bottom = 5
+	cap.set_corner_radius_all(10)
+	var cap_w := frame + 16.0
+	cap.draw(ci, Rect2(-INNER_HALF_WIDTH - frame - 6.0, JAR_TOP_Y - 14.0, cap_w, 22.0))
+	cap.draw(ci, Rect2(INNER_HALF_WIDTH - 10.0, JAR_TOP_Y - 14.0, cap_w, 22.0))

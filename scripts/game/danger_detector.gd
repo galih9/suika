@@ -108,11 +108,12 @@ func _draw() -> void:
 	# Calm dashed reference line
 	var dash_len := 16.0
 	var gap_len := 12.0
-	var base_color := Color(0.55, 0.36, 0.22, 0.38)
+	var base_color := Color(1.0, 0.42, 0.55, 0.45)
 	var x := left
 	while x < right:
+		# Pixel-style dashes (4px tall blocks) to match the fruit sprites.
 		var seg_end := minf(x + dash_len, right)
-		draw_line(Vector2(x, line_y), Vector2(seg_end, line_y), base_color, 2.5, true)
+		draw_rect(Rect2(x, line_y - 2.0, seg_end - x, 4.0), base_color)
 		x += dash_len + gap_len
 
 	# Glow + countdown bar appear ONLY when breaching from bottom to top

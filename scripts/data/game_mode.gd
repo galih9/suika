@@ -12,9 +12,9 @@ enum Mode {
 static func get_display_name(mode: Mode) -> String:
 	match mode:
 		Mode.FRENZY:
-			return "Frenzy"
+			return Loc.t("mode.frenzy")
 		_:
-			return "Normal"
+			return Loc.t("mode.normal")
 
 
 static func get_badge_text(mode: Mode) -> String:

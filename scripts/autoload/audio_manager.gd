@@ -17,6 +17,8 @@ var _stream_nuclear_explode: AudioStreamWAV
 var _stream_concrete_crush: AudioStreamWAV
 var _stream_sticky: AudioStreamWAV
 var _stream_charged_bounce: AudioStreamWAV
+var _stream_unlock: AudioStreamWAV
+var _stream_pop: AudioStreamWAV
 
 
 func _ready() -> void:
@@ -40,6 +42,8 @@ func _exit_tree() -> void:
 	_stream_concrete_crush = null
 	_stream_sticky = null
 	_stream_charged_bounce = null
+	_stream_unlock = null
+	_stream_pop = null
 
 
 func _build_player_pool() -> void:
@@ -60,6 +64,8 @@ func _build_streams() -> void:
 	_stream_concrete_crush = _synth_explosion(140.0, 55.0, 0.16, 0.42, 0.45)
 	_stream_sticky = _synth_tone(260.0, 480.0, 0.09, 0.28)
 	_stream_charged_bounce = _synth_chime([740.0, 1046.5], 0.10, 0.30)
+	_stream_unlock = _synth_chime([659.25, 783.99, 1046.5, 1318.5], 0.11, 0.34)
+	_stream_pop = _synth_tone(520.0, 900.0, 0.07, 0.26)
 
 
 func _synth_tone(start_hz: float, end_hz: float, duration: float, volume: float) -> AudioStreamWAV:
@@ -171,3 +177,13 @@ func play_sticky() -> void:
 
 func play_charged_bounce() -> void:
 	_play_stream(_stream_charged_bounce, randf_range(0.95, 1.12))
+
+
+## Sparkly arpeggio for discovering a brand-new fruit.
+func play_unlock() -> void:
+	_play_stream(_stream_unlock)
+
+
+## Short bubbly pop for UI moments (toasts, fruit guide pop).
+func play_pop(pitch: float = 1.0) -> void:
+	_play_stream(_stream_pop, pitch)

@@ -1,7 +1,7 @@
 class_name SpawnProgression
 extends RefCounted
 
-## Tracks per-run unlocked fruit levels so new runs start strictly with Kersen (level 0)
+## Tracks per-run unlocked fruit levels so new runs start strictly with Blueberry (level 0)
 ## and higher droppable tiers unlock only after being created by a merge.
 
 var current_level: int = 0
