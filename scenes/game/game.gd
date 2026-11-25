@@ -60,6 +60,7 @@ const BOARD_HEIGHT := 860.0
 var _top_hud_bottom: float = 170.0
 var _bottom_bar_height: float = 124.0
 var _power_up_modal: PowerUpModal
+var _edge_splatter: EdgeSplatter
 var _power_info_button: Button
 var _modal_paused_game: bool = false
 
@@ -97,6 +98,7 @@ func _ready() -> void:
 	_board.fruit_unlocked_at.connect(_on_board_fruit_unlocked_at)
 	_board.explosion_triggered.connect(_on_board_explosion)
 	_board.spawn_phase_changed.connect(_on_board_spawn_phase_changed)
+	_board.spawn_floor_changed.connect(_on_board_spawn_floor_changed)
 
 	_pause_button.pressed.connect(_on_pause_pressed)
 	_resume_button.pressed.connect(_on_resume_pressed)
@@ -106,6 +108,11 @@ func _ready() -> void:
 	_pause_menu_button.pressed.connect(_on_menu_pressed)
 	_play_again_button.pressed.connect(_on_restart_pressed)
 	_game_over_menu_button.pressed.connect(_on_menu_pressed)
+
+	# Juice splats on the screen edges for combo splashes: above the HUD, below the modals.
+	_edge_splatter = EdgeSplatter.new()
+	add_child(_edge_splatter)
+	move_child(_edge_splatter, _pause_overlay.get_index())
 
 	_power_up_modal = PowerUpModal.new()
 	add_child(_power_up_modal)
@@ -289,6 +296,8 @@ func _reset_run_state() -> void:
 	_max_drop_level = 4
 	_fruit_guide.reset_run()
 	_toasts.clear()
+	if _edge_splatter != null:
+		_edge_splatter.clear()
 	for child in _fx_layer.get_children():
 		child.queue_free()
 
@@ -377,6 +386,10 @@ func _on_board_fruit_merged(level: int, local_pos: Vector2, points: int, is_max_
 
 	# Combo splash plays only sometimes (chance grows with the combo), see AudioManager.
 	var splashed := AudioManager.try_play_combo_splash(_combo)
+	if splashed:
+		# Splat the screen edges in this fruit's own sprite colours.
+		_edge_splatter.splash(FruitRegistry.textures.get_palette(level), _combo)
+		_add_shake(3.0)
 	if _combo >= 3:
 		_spawn_float_text(Loc.t("game.combo", [_combo]), ui_pos + Vector2(0.0, -48.0), 30, UITheme.GOLD, UITheme.GOLD_SHADOW.darkened(0.3), 0.08)
 		if not splashed:
@@ -419,6 +432,17 @@ func _on_board_spawn_phase_changed(_phase: int, max_drop_level: int) -> void:
 		icon = FruitRegistry.textures.get_texture(max_drop_level)
 	_max_drop_level = maxi(_max_drop_level, max_drop_level)
 	_toasts.show_toast(Loc.t("toast.drops"), sub, icon, UITheme.GREEN)
+
+
+func _on_board_spawn_floor_changed(floor_level: int) -> void:
+	# The fruit right below the new floor just retired from (normal) drops.
+	var retired := floor_level - 1
+	_toasts.show_toast(
+		Loc.t("toast.floor"),
+		Loc.t("toast.floor_sub", [Loc.fruit_plural(retired)]),
+		FruitRegistry.textures.get_texture(floor_level),
+		UITheme.GREEN
+	)
 
 
 func _on_board_explosion(_local_pos: Vector2, _blast_radius: float, is_nuclear: bool) -> void:

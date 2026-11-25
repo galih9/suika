@@ -329,6 +329,29 @@ func _test_spawn_phases_scale_with_progress() -> void:
 			small_count += 1
 	_assert(small_count < 100, "Late game must not be flooded with tiny fruits (%d/400 were tier 1-2)" % small_count)
 
+	# Score floor: 500 retires Blueberry, 800 retires Cherry, ... every 300 points.
+	sp.current_score = 499
+	_assert(sp.get_floor_level() == 0, "No floor below 500 points")
+	sp.current_score = 500
+	_assert(sp.get_floor_level() == 1, "500 points must retire Blueberry (floor 1)")
+	sp.current_score = 800
+	_assert(sp.get_floor_level() == 2, "800 points must retire Cherry (floor 2)")
+	sp.current_score = 2000
+	_assert(sp.get_floor_level() == 6, "2000 points must put the floor at Orange (6), got %d" % sp.get_floor_level())
+	var chances := sp.get_drop_chances(catalog)
+	var below := 0.0
+	for lvl in range(0, 6):
+		below += float(chances.get(lvl, 0.0))
+	_assert(absf(below - SpawnProgression.BELOW_FLOOR_CHANCE) < 0.005, "Below-floor fruits must keep a small total chance, got %f" % below)
+	_assert(float(chances.get(0, 0.0)) > 0.0, "A Blueberry must still be possible (rarely) at 2000 points")
+	_assert(sp.get_max_drop_level() == SpawnProgression.MAX_DROP_LEVEL_CAP, "High floor must widen drops up to the cap")
+	var under_floor := 0
+	for _i in range(1000):
+		sp.consume_and_advance(catalog, rng)
+		if sp.next_level < 6:
+			under_floor += 1
+	_assert(under_floor > 0 and under_floor < 120, "Under-floor drops at 2000 points must be rare but possible (%d/1000)" % under_floor)
+
 
 func _test_continuous_merge_sweep_and_clusters() -> void:
 	var board := GameBoard.new()

@@ -9,7 +9,11 @@ extends RefCounted
 ##  - a run starts with only Blueberry; a tier can drop once it has been made this run,
 ##  - the odds shift toward bigger fruit as the biggest fruit made this run grows (PHASES),
 ##  - late phases also unlock Lime (tier 6) and Orange (tier 7) as drops,
-##  - after the opening, three tiny fruits in a row get one reroll.
+##  - after the opening, three tiny fruits in a row get one reroll,
+##  - score raises a "floor": from SCORE_FLOOR_START points the smallest tier stops dropping,
+##    and every SCORE_FLOOR_STEP points after that the next one does too (Blueberry at 500,
+##    Cherry at 800, Strawberry at 1100, ...). Fruits under the floor keep a small
+##    BELOW_FLOOR_CHANCE so a tiny one still sneaks in now and then.
 
 ## Each phase starts once a fruit of at least `min_level` (0-based) has been made this run.
 ## `weights[i]` is the relative chance of level i; levels past the end of the array never drop.
@@ -22,6 +26,24 @@ const PHASES: Array[Dictionary] = [
 ## Levels counted as "tiny" for the anti-streak reroll (Blueberry, Cherry).
 const TINY_MAX_LEVEL := 1
 const STREAK_LIMIT := 3
+
+## Score floor: at SCORE_FLOOR_START the floor becomes level 1 (no more Blueberry), then +1
+## level every SCORE_FLOOR_STEP points, up to MAX_FLOOR_LEVEL.
+const SCORE_FLOOR_START := 500
+const SCORE_FLOOR_STEP := 300
+const MAX_FLOOR_LEVEL := 6
+## Total chance (0..1) that a drop is still a fruit below the floor.
+const BELOW_FLOOR_CHANCE := 0.04
+## Once the floor rises, at least this many tiers above it can drop too...
+const FLOOR_WINDOW_EXTRA := 2
+## ...but never bigger than this level (8 = Apple).
+const MAX_DROP_LEVEL_CAP := 8
+## Tiers above the end of the current phase table taper off from its last weight:
+## last * FALLOFF, last * FALLOFF^2, ... (so bigger fruits are always rarer).
+const ABOVE_TABLE_FALLOFF := 0.6
+
+## Set by the board whenever the score changes.
+var current_score: int = 0
 
 var current_level: int = 0
 var next_level: int = 0
@@ -36,6 +58,7 @@ func reset(_catalog: FruitCatalog) -> void:
 	highest_unlocked_level = 0
 	current_level = 0
 	next_level = 0
+	current_score = 0
 	_history.clear()
 
 
@@ -75,10 +98,28 @@ func get_phase() -> int:
 	return phase
 
 
+## Floor from score alone (0 = no floor).
+func get_score_floor() -> int:
+	if current_score < SCORE_FLOOR_START:
+		return 0
+	@warning_ignore("integer_division")
+	var steps := (current_score - SCORE_FLOOR_START) / SCORE_FLOOR_STEP
+	return mini(1 + steps, MAX_FLOOR_LEVEL)
+
+
+## Lowest level that normally drops right now (never above what was made this run).
+func get_floor_level() -> int:
+	return mini(get_score_floor(), get_chain_level())
+
+
 ## Biggest level that can currently drop.
 func get_max_drop_level() -> int:
 	var weights: Array = PHASES[get_phase()]["weights"]
-	return mini(weights.size() - 1, get_chain_level())
+	var top := weights.size() - 1
+	var floor_lvl := get_floor_level()
+	if floor_lvl > 0:
+		top = maxi(top, floor_lvl + FLOOR_WINDOW_EXTRA)
+	return mini(mini(top, MAX_DROP_LEVEL_CAP), get_chain_level())
 
 
 ## Current drop chances as {level: probability 0..1} (for tests / debugging / UI).
@@ -128,13 +169,29 @@ func _tiny_streak() -> int:
 
 func _current_weights(catalog: FruitCatalog) -> PackedFloat32Array:
 	var base: Array = PHASES[get_phase()]["weights"]
-	var chain := get_chain_level()
-	var count := catalog.get_count() if catalog != null else base.size()
+	var top := get_max_drop_level()
+	if catalog != null:
+		top = mini(top, catalog.get_count() - 1)
+	var floor_lvl := mini(get_floor_level(), top)
 	var out := PackedFloat32Array()
-	out.resize(mini(base.size(), count))
-	for i in range(out.size()):
-		# Only tiers made this run (as an unbroken chain from Blueberry) can drop.
-		out[i] = float(base[i]) if i <= chain else 0.0
+	out.resize(top + 1)
+
+	# Normal pool: floor..top.
+	var main_total := 0.0
+	for i in range(floor_lvl, top + 1):
+		var w := 0.0
+		if i < base.size():
+			w = float(base[i])
+		else:
+			w = float(base[base.size() - 1]) * pow(ABOVE_TABLE_FALLOFF, float(i - base.size() + 1))
+		out[i] = w
+		main_total += w
+
+	# Below the floor: a small shared chance so a tiny fruit still shows up once in a while.
+	if floor_lvl > 0 and main_total > 0.0 and BELOW_FLOOR_CHANCE > 0.0:
+		var below_total := main_total * BELOW_FLOOR_CHANCE / (1.0 - BELOW_FLOOR_CHANCE)
+		for i in range(floor_lvl):
+			out[i] = below_total / float(floor_lvl)
 	return out
 
 

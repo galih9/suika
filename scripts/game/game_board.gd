@@ -13,6 +13,8 @@ signal fruit_merged(level: int, local_pos: Vector2, points: int, is_max_bonus: b
 signal explosion_triggered(local_pos: Vector2, blast_radius: float, is_nuclear: bool)
 ## The drop pool grew (bigger fruits drop more often / a new tier can drop). See SpawnProgression.
 signal spawn_phase_changed(phase: int, max_drop_level: int)
+## The score floor rose: fruits below floor_level (mostly) stop dropping.
+signal spawn_floor_changed(floor_level: int)
 signal danger_changed(is_triggered: bool, progress: float)
 signal game_over(final_score: int, is_new_best: bool)
 
@@ -248,6 +250,7 @@ func _process_merge_queue() -> void:
 		if score > best_score:
 			best_score = score
 		score_changed.emit(score, best_score, gained)
+	_sync_spawn_floor()
 
 	var nuclear_blasts: Array = result.get("nuclear_blasts", [])
 	for blast in nuclear_blasts:
@@ -255,6 +258,15 @@ func _process_merge_queue() -> void:
 		var base_r := float(blast.get("base_radius", 40.0))
 		var exempt: Fruit = blast.get("exempt", null)
 		_trigger_explosion(center, base_r + NUCLEAR_BLAST_EXTRA_RADIUS, true, exempt)
+
+
+## Feeds the score to the spawn picker and announces when the drop floor rises.
+func _sync_spawn_floor() -> void:
+	var floor_before := spawn_progression.get_floor_level()
+	spawn_progression.current_score = score
+	var floor_after := spawn_progression.get_floor_level()
+	if floor_after > floor_before:
+		spawn_floor_changed.emit(floor_after)
 
 
 func _process_concrete_crushing() -> void:

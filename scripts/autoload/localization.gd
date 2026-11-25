@@ -124,6 +124,8 @@ const STRINGS := {
 		"toast.drops": "Bigger drops unlocked!",
 		"toast.drops_sub": "Bigger fruits drop more often now.",
 		"toast.drops_new": "%s can now drop. Game on!",
+		"toast.floor": "Drops level up!",
+		"toast.floor_sub": "No more %s (well, almost).",
 
 		"guide.title": "Fruit Guide",
 		"guide.found": "%d / %d found",
@@ -254,6 +256,8 @@ const STRINGS := {
 		"toast.drops": "Buah jatuhan makin besar!",
 		"toast.drops_sub": "Buah besar sekarang lebih sering jatuh.",
 		"toast.drops_new": "%s sekarang bisa jatuh. Ayo!",
+		"toast.floor": "Buah jatuhan naik level!",
+		"toast.floor_sub": "%s sudah (hampir) tidak jatuh lagi.",
 
 		"guide.title": "Panduan Buah",
 		"guide.found": "%d / %d ditemukan",
