@@ -16,7 +16,7 @@ const LANGUAGE_NAMES := {
 
 const STRINGS := {
 	"en": {
-		"app.title": "Fruity-zer",
+		"app.title": "Fruityzer",
 		"app.tagline": "Drop it. Merge it. Grow it!",
 
 		"boot.subtitle": "A juicy fruit merging game",
@@ -121,6 +121,9 @@ const STRINGS := {
 		"toast.tier": "Tier %d of %d",
 		"toast.phew": "Phew! Close one",
 		"toast.phew_sub": "The jar is safe... for now.",
+		"toast.drops": "Bigger drops unlocked!",
+		"toast.drops_sub": "Bigger fruits drop more often now.",
+		"toast.drops_new": "%s can now drop. Game on!",
 
 		"guide.title": "Fruit Guide",
 		"guide.found": "%d / %d found",
@@ -143,7 +146,7 @@ const STRINGS := {
 		"fruit.watermelon": "Watermelon",
 	},
 	"id": {
-		"app.title": "Fruity-zer",
+		"app.title": "Fruityzer",
 		"app.tagline": "Jatuhkan. Gabungkan. Besarkan!",
 
 		"boot.subtitle": "Game gabung buah yang segar",
@@ -248,6 +251,9 @@ const STRINGS := {
 		"toast.tier": "Tingkat %d dari %d",
 		"toast.phew": "Fiuh! Nyaris saja",
 		"toast.phew_sub": "Toplesnya aman... untuk sekarang.",
+		"toast.drops": "Buah jatuhan makin besar!",
+		"toast.drops_sub": "Buah besar sekarang lebih sering jatuh.",
+		"toast.drops_new": "%s sekarang bisa jatuh. Ayo!",
 
 		"guide.title": "Panduan Buah",
 		"guide.found": "%d / %d ditemukan",

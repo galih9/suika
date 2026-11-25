@@ -22,10 +22,12 @@ func _run_all() -> void:
 	_test_fruit_pool_reuse()
 	await _test_game_board_merge_logic()
 	await _test_spawn_progression_unlocks()
+	_test_spawn_phases_scale_with_progress()
 	await _test_continuous_merge_sweep_and_clusters()
 	await _test_dropper_input_and_no_teleport()
 	await _test_no_stale_contact_teleport()
 	_test_danger_detector_rules()
+	_test_combo_splash_chance()
 	await _test_modes_and_save_manager()
 	await _test_frenzy_sticky_property()
 	await _test_frenzy_bomb_property()
@@ -291,6 +293,43 @@ func _test_spawn_progression_unlocks() -> void:
 	board.queue_free()
 
 
+func _test_spawn_phases_scale_with_progress() -> void:
+	var catalog := FruitRegistry.catalog
+	var sp := SpawnProgression.new()
+	sp.reset(catalog)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 12345
+
+	_assert(sp.get_phase() == 0 and sp.get_max_drop_level() == 0, "Fresh run: phase 0, only Blueberry drops")
+
+	# Make Cherry..Persimmon (levels 1-5): still the opening phase, drops up to Kiwi (4).
+	for lvl in range(1, 6):
+		sp.unlock_level(lvl)
+	_assert(sp.get_phase() == 0 and sp.get_max_drop_level() == 4, "Before Orange, drops stay within the first 5 tiers")
+	var early_blue := float(sp.get_drop_chances(catalog).get(0, 0.0))
+
+	# Make Orange (6): near-even odds like Suika.
+	sp.unlock_level(6)
+	_assert(sp.get_phase() == 1, "Making Orange must enter phase 1")
+	var mid_blue := float(sp.get_drop_chances(catalog).get(0, 0.0))
+	_assert(mid_blue < early_blue, "Blueberry must get rarer as the run grows (%f -> %f)" % [early_blue, mid_blue])
+
+	# Make up to Dragonfruit (11): Lime and Orange join the drop pool, Blueberry is rare.
+	for lvl in range(7, 12):
+		sp.unlock_level(lvl)
+	_assert(sp.get_max_drop_level() == 6, "Late game must allow drops up to Orange (6), got %d" % sp.get_max_drop_level())
+	var late := sp.get_drop_chances(catalog)
+	_assert(float(late.get(0, 0.0)) < 0.08, "Late game Blueberry chance must be small, got %f" % float(late.get(0, 0.0)))
+
+	var small_count := 0
+	for _i in range(400):
+		sp.consume_and_advance(catalog, rng)
+		_assert(sp.next_level >= 0 and sp.next_level <= 6, "Late drops must stay within 0..6, got %d" % sp.next_level)
+		if sp.next_level <= 1:
+			small_count += 1
+	_assert(small_count < 100, "Late game must not be flooded with tiny fruits (%d/400 were tier 1-2)" % small_count)
+
+
 func _test_continuous_merge_sweep_and_clusters() -> void:
 	var board := GameBoard.new()
 	add_child(board)
@@ -451,6 +490,17 @@ func _test_no_stale_contact_teleport() -> void:
 	_assert(not neighbour.in_pool, "Untouched neighbour must stay in place")
 
 	board.queue_free()
+
+
+func _test_combo_splash_chance() -> void:
+	_assert(AudioManager.get_splash_chance(0) == 0.0, "No splash without a combo")
+	_assert(AudioManager.get_splash_chance(1) == 0.0, "A single merge must never splash")
+	var prev := 0.0
+	for combo in range(2, 12):
+		var c := AudioManager.get_splash_chance(combo)
+		_assert(c > 0.0 and c < 1.0, "Combo x%d splash chance must be a real chance, got %f" % [combo, c])
+		_assert(c >= prev, "Splash chance must not drop as the combo grows")
+		prev = c
 
 
 func _test_danger_detector_rules() -> void:

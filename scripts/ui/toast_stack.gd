@@ -27,9 +27,10 @@ func show_toast(
 	subtitle: String = "",
 	icon: Texture2D = null,
 	accent: Color = UITheme.GOLD,
-	hold: float = HOLD_TIME
+	hold: float = HOLD_TIME,
+	important: bool = false
 ) -> void:
-	_queue.append({"title": title, "subtitle": subtitle, "icon": icon, "accent": accent, "hold": hold})
+	_queue.append({"title": title, "subtitle": subtitle, "icon": icon, "accent": accent, "hold": hold, "important": important})
 	_try_show_next()
 
 
@@ -108,6 +109,8 @@ func _spawn(data: Dictionary) -> void:
 	tw.tween_property(panel, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 	_toasts.append({"node": panel, "age": 0.0, "hold": float(data["hold"]), "leaving": false})
+	# Sound plays when the toast actually appears (not when it was queued).
+	AudioManager.play_toast(bool(data.get("important", false)))
 
 
 func _process(delta: float) -> void:

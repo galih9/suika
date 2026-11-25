@@ -279,6 +279,9 @@ func deactivate_to_pool() -> void:
 func _on_body_entered(body: Node) -> void:
 	if in_pool or is_merging or not is_dropped:
 		return
+	if not has_collided:
+		# First touch after a drop (merged fruits start with has_collided = true).
+		AudioManager.play_fruit_land(level)
 	has_collided = true
 
 	if is_concrete_crushing():

@@ -81,6 +81,7 @@ var _danger_time: float = 0.0
 var _clock: float = 0.0
 var _shake: float = 0.0
 var _next_prop_seen_this_run: Dictionary = {}
+var _max_drop_level: int = 4
 
 
 func _ready() -> void:
@@ -95,6 +96,7 @@ func _ready() -> void:
 	_board.fruit_merged.connect(_on_board_fruit_merged)
 	_board.fruit_unlocked_at.connect(_on_board_fruit_unlocked_at)
 	_board.explosion_triggered.connect(_on_board_explosion)
+	_board.spawn_phase_changed.connect(_on_board_spawn_phase_changed)
 
 	_pause_button.pressed.connect(_on_pause_pressed)
 	_resume_button.pressed.connect(_on_resume_pressed)
@@ -284,6 +286,7 @@ func _reset_run_state() -> void:
 	_danger_peak = 0.0
 	_danger_time = 0.0
 	_next_prop_seen_this_run.clear()
+	_max_drop_level = 4
 	_fruit_guide.reset_run()
 	_toasts.clear()
 	for child in _fx_layer.get_children():
@@ -304,8 +307,7 @@ func _on_board_score_changed(new_score: int, new_best: int, delta_points: int) -
 		_punch(_score_value, 1.15)
 		if not _best_toast_done and _best_at_start > 0 and new_score > _best_at_start:
 			_best_toast_done = true
-			_toasts.show_toast(Loc.t("toast.best"), Loc.t("toast.best_sub", [UITheme.format_number(_best_at_start)]), PixelIcons.get_icon("crown"), UITheme.GOLD)
-			AudioManager.play_unlock()
+			_toasts.show_toast(Loc.t("toast.best"), Loc.t("toast.best_sub", [UITheme.format_number(_best_at_start)]), PixelIcons.get_icon("crown"), UITheme.GOLD, ToastStack.HOLD_TIME, true)
 			_punch(_best_chip, 1.2)
 		while _milestone_index < SCORE_MILESTONES.size() and new_score >= int(SCORE_MILESTONES[_milestone_index]):
 			var m := int(SCORE_MILESTONES[_milestone_index])
@@ -373,16 +375,19 @@ func _on_board_fruit_merged(level: int, local_pos: Vector2, points: int, is_max_
 	var font_size := int(lerpf(30.0, 54.0, clampf(float(level) / 14.0, 0.0, 1.0)))
 	_spawn_float_text("+%d" % points, ui_pos, font_size, Color.WHITE, col.darkened(0.35))
 
+	# Combo splash plays only sometimes (chance grows with the combo), see AudioManager.
+	var splashed := AudioManager.try_play_combo_splash(_combo)
 	if _combo >= 3:
 		_spawn_float_text(Loc.t("game.combo", [_combo]), ui_pos + Vector2(0.0, -48.0), 30, UITheme.GOLD, UITheme.GOLD_SHADOW.darkened(0.3), 0.08)
-		AudioManager.play_pop(1.0 + 0.08 * float(mini(_combo, 8)))
+		if not splashed:
+			AudioManager.play_pop(1.0 + 0.08 * float(mini(_combo, 8)))
 	if _combo >= 5 and not _combo_toast_done:
 		_combo_toast_done = true
 		_toasts.show_toast(Loc.t("game.combo", [_combo]), Loc.t("toast.combo_sub"), PixelIcons.get_icon("sparkle"), UITheme.ORANGE)
 
 	if is_max_bonus:
 		_add_shake(14.0)
-		_toasts.show_toast(Loc.t("toast.smash", [Loc.fruit_name(level)]), Loc.t("toast.smash_sub", [UITheme.format_number(points)]), FruitRegistry.textures.get_texture(level), UITheme.PINK)
+		_toasts.show_toast(Loc.t("toast.smash", [Loc.fruit_name(level)]), Loc.t("toast.smash_sub", [UITheme.format_number(points)]), FruitRegistry.textures.get_texture(level), UITheme.PINK, ToastStack.HOLD_TIME, true)
 	elif level >= 11:
 		_add_shake(8.0)
 	elif level >= 8:
@@ -398,13 +403,22 @@ func _on_board_fruit_unlocked_at(level: int, local_pos: Vector2) -> void:
 	var fruit_name := Loc.fruit_name(level)
 	var total := FruitRegistry.catalog.get_count()
 	if first_ever:
-		AudioManager.play_unlock()
 		if SaveManager.get_next_undiscovered(total) < 0:
-			_toasts.show_toast(Loc.t("toast.complete"), Loc.t("toast.complete_sub", [total]), FruitRegistry.textures.get_texture(level), UITheme.PINK, 3.2)
+			_toasts.show_toast(Loc.t("toast.complete"), Loc.t("toast.complete_sub", [total]), FruitRegistry.textures.get_texture(level), UITheme.PINK, 3.2, true)
 		else:
-			_toasts.show_toast(Loc.t("toast.new_fruit", [fruit_name]), Loc.t("toast.new_fruit_sub", [SaveManager.get_discovered_count(total), total]), FruitRegistry.textures.get_texture(level), UITheme.GOLD, 2.8)
+			_toasts.show_toast(Loc.t("toast.new_fruit", [fruit_name]), Loc.t("toast.new_fruit_sub", [SaveManager.get_discovered_count(total), total]), FruitRegistry.textures.get_texture(level), UITheme.GOLD, 2.8, true)
 	elif level >= BIG_FRUIT_TOAST_LEVEL:
 		_toasts.show_toast(Loc.t("toast.wow", [fruit_name]), Loc.t("toast.tier", [level + 1, total]), FruitRegistry.textures.get_texture(level), UITheme.BLUE)
+
+
+func _on_board_spawn_phase_changed(_phase: int, max_drop_level: int) -> void:
+	var sub := Loc.t("toast.drops_sub")
+	var icon: Texture2D = PixelIcons.get_icon("bolt")
+	if max_drop_level > _max_drop_level:
+		sub = Loc.t("toast.drops_new", [Loc.fruit_name(max_drop_level)])
+		icon = FruitRegistry.textures.get_texture(max_drop_level)
+	_max_drop_level = maxi(_max_drop_level, max_drop_level)
+	_toasts.show_toast(Loc.t("toast.drops"), sub, icon, UITheme.GREEN)
 
 
 func _on_board_explosion(_local_pos: Vector2, _blast_radius: float, is_nuclear: bool) -> void:

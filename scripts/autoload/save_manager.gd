@@ -6,9 +6,10 @@ extends Node
 signal fruit_discovered(level: int)
 
 const SAVE_PATH := "user://save_data.cfg"
-## The game used to be called "Buah Merge"; on desktop Godot keeps user data in a folder named
-## after the project, so old saves live next to the new folder. They are copied over once.
-const LEGACY_APP_DIR_NAME := "Buah Merge"
+## The game used to be called "Fruity-zer" and before that "Buah Merge". On desktop Godot keeps
+## user data in a folder named after the project, so old saves live next to the new folder.
+## The newest one found is copied over once.
+const LEGACY_APP_DIR_NAMES: Array[String] = ["Fruity-zer", "Buah Merge"]
 const SECTION_STATS := "stats"
 const KEY_HIGH_SCORE := "high_score"
 const KEY_FRENZY_HIGH_SCORE := "frenzy_high_score"
@@ -74,15 +75,18 @@ func _save() -> void:
 	_config.save(SAVE_PATH)
 
 
-## Loads a save from the old "Buah Merge" user folder (desktop only) and copies it over.
+## Loads a save from an old-name user folder (desktop only) and copies it over.
 func _try_load_legacy_save() -> Error:
-	var legacy_path := OS.get_user_data_dir().get_base_dir().path_join(LEGACY_APP_DIR_NAME).path_join("save_data.cfg")
-	if not FileAccess.file_exists(legacy_path):
-		return ERR_FILE_NOT_FOUND
-	var err := _config.load(legacy_path)
-	if err == OK:
-		_config.save(SAVE_PATH)
-	return err
+	var base := OS.get_user_data_dir().get_base_dir()
+	for dir_name in LEGACY_APP_DIR_NAMES:
+		var legacy_path := base.path_join(dir_name).path_join("save_data.cfg")
+		if not FileAccess.file_exists(legacy_path):
+			continue
+		var err := _config.load(legacy_path)
+		if err == OK:
+			_config.save(SAVE_PATH)
+			return OK
+	return ERR_FILE_NOT_FOUND
 
 
 # --- Settings -------------------------------------------------------------------------------

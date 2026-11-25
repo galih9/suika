@@ -11,6 +11,8 @@ signal fruit_unlocked_at(level: int, local_pos: Vector2)
 ## Emitted for every merge. level = the new fruit's level (or the max level for a bonus merge).
 signal fruit_merged(level: int, local_pos: Vector2, points: int, is_max_bonus: bool)
 signal explosion_triggered(local_pos: Vector2, blast_radius: float, is_nuclear: bool)
+## The drop pool grew (bigger fruits drop more often / a new tier can drop). See SpawnProgression.
+signal spawn_phase_changed(phase: int, max_drop_level: int)
 signal danger_changed(is_triggered: bool, progress: float)
 signal game_over(final_score: int, is_new_best: bool)
 
@@ -225,6 +227,7 @@ func _schedule_merge_flush() -> void:
 
 func _process_merge_queue() -> void:
 	var result := merge_resolver.process_queue(fruit_pool, jar, merge_effects)
+	var phase_before := spawn_progression.get_phase()
 	var merges: Array = result.get("merges", [])
 	for m in merges:
 		var info: Dictionary = m
@@ -235,6 +238,9 @@ func _process_merge_queue() -> void:
 		if not is_bonus and spawn_progression.unlock_level(lvl):
 			fruit_unlocked.emit(lvl)
 			fruit_unlocked_at.emit(lvl, pos)
+	var phase_after := spawn_progression.get_phase()
+	if phase_after > phase_before:
+		spawn_phase_changed.emit(phase_after, spawn_progression.get_max_drop_level())
 
 	var gained := int(result.get("gained_score", 0))
 	if gained > 0:
