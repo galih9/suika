@@ -1,0 +1,120 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scenes/menu/menu.gd" id="1_menu"]
+
+[node name="MenuScene" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_menu")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(1, 0.972549, 0.933333, 1)
+
+[node name="SafeMargin" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 32
+theme_override_constants/margin_top = 48
+theme_override_constants/margin_right = 32
+theme_override_constants/margin_bottom = 48
+
+[node name="Center" type="CenterContainer" parent="SafeMargin"]
+layout_mode = 2
+
+[node name="MainColumn" type="VBoxContainer" parent="SafeMargin/Center"]
+custom_minimum_size = Vector2(620, 0)
+layout_mode = 2
+theme_override_constants/separation = 26
+alignment = 1
+
+[node name="HeaderBox" type="VBoxContainer" parent="SafeMargin/Center/MainColumn"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="TitleLabel" type="Label" parent="SafeMargin/Center/MainColumn/HeaderBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 54
+text = "BUAH MERGE"
+horizontal_alignment = 1
+
+[node name="SubtitleLabel" type="Label" parent="SafeMargin/Center/MainColumn/HeaderBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Kersen to Kelapa"
+horizontal_alignment = 1
+
+[node name="BestWrap" type="CenterContainer" parent="SafeMargin/Center/MainColumn"]
+layout_mode = 2
+
+[node name="BestCard" type="PanelContainer" parent="SafeMargin/Center/MainColumn/BestWrap"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="BestLabel" type="Label" parent="SafeMargin/Center/MainColumn/BestWrap/BestCard"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "BEST SCORE: 0"
+horizontal_alignment = 1
+
+[node name="EvoCard" type="PanelContainer" parent="SafeMargin/Center/MainColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="EvoVBox" type="VBoxContainer" parent="SafeMargin/Center/MainColumn/EvoCard"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="EvoTitle" type="Label" parent="SafeMargin/Center/MainColumn/EvoCard/EvoVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "FRUIT HIERARCHY"
+horizontal_alignment = 1
+
+[node name="EvoFlow" type="HFlowContainer" parent="SafeMargin/Center/MainColumn/EvoCard/EvoVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 12
+alignment = 1
+
+[node name="PlayButton" type="Button" parent="SafeMargin/Center/MainColumn"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 78)
+layout_mode = 2
+text = "PLAY"
+
+[node name="SecondaryRow" type="HBoxContainer" parent="SafeMargin/Center/MainColumn"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="SoundButton" type="Button" parent="SafeMargin/Center/MainColumn/SecondaryRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 60)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Sound: ON"
+
+[node name="QuitButton" type="Button" parent="SafeMargin/Center/MainColumn/SecondaryRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 60)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Quit"

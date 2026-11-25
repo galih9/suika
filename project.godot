@@ -10,17 +10,27 @@ config_version=5
 
 [application]
 
-config/name="watermelongame"
-run/main_scene="uid://dbgssk2gxoufp"
+config/name="Buah Merge"
+run/main_scene="res://scenes/boot/boot.tscn"
 config/features=PackedStringArray("4.7", "Mobile")
 config/icon="res://icon.svg"
+
+[autoload]
+
+SaveManager="*res://scripts/autoload/save_manager.gd"
+AudioManager="*res://scripts/autoload/audio_manager.gd"
+FruitRegistry="*res://scripts/autoload/fruit_registry.gd"
+SceneManager="*res://scripts/autoload/scene_manager.gd"
 
 [display]
 
 window/size/viewport_width=720
 window/size/viewport_height=1280
+window/size/window_width_override=450
+window/size/window_height_override=800
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+window/handheld/orientation=1
 
 [physics]
 

@@ -1,0 +1,77 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scenes/loading/loading.gd" id="1_loading"]
+
+[node name="LoadingScene" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_loading")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(1, 0.972549, 0.933333, 1)
+
+[node name="Center" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="LoadingCard" type="PanelContainer" parent="Center"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(540, 0)
+layout_mode = 2
+
+[node name="VBox" type="VBoxContainer" parent="Center/LoadingCard"]
+layout_mode = 2
+theme_override_constants/separation = 18
+alignment = 1
+
+[node name="IconCenter" type="CenterContainer" parent="Center/LoadingCard/VBox"]
+layout_mode = 2
+
+[node name="FruitIcon" type="TextureRect" parent="Center/LoadingCard/VBox/IconCenter"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(96, 96)
+layout_mode = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="HintLabel" type="Label" parent="Center/LoadingCard/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "Loading..."
+horizontal_alignment = 1
+
+[node name="ProgressBar" type="ProgressBar" parent="Center/LoadingCard/VBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 28)
+layout_mode = 2
+show_percentage = false
+
+[node name="PercentLabel" type="Label" parent="Center/LoadingCard/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "0%"
+horizontal_alignment = 1
+
+[node name="TipLabel" type="Label" parent="Center/LoadingCard/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Tip: Merge identical fruits from Kersen all the way to Kelapa!"
+horizontal_alignment = 1
+autowrap_mode = 2
