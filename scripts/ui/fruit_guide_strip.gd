@@ -107,6 +107,17 @@ func is_made_this_run(level: int) -> bool:
 	return _made_this_run.has(level)
 
 
+func refresh_skin() -> void:
+	for i in range(_icons.size()):
+		_icons[i].texture = FruitRegistry.textures.get_texture(i)
+
+
+func refresh_language() -> void:
+	if _title_label != null:
+		_title_label.text = Loc.t("guide.title")
+	_refresh_count()
+
+
 ## Global-space centre of a slot (for fly-in animations).
 func get_slot_global_center(level: int) -> Vector2:
 	if level < 0 or level >= _slots.size():

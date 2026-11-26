@@ -116,6 +116,15 @@ func hide_guide() -> void:
 	queue_redraw()
 
 
+func refresh_held_texture(level: int) -> void:
+	if not has_held_fruit:
+		return
+	_sprite.texture = FruitRegistry.textures.get_texture(level)
+	_sprite_scale = FruitRegistry.textures.get_sprite_scale(level)
+	if _pop_tween == null or not _pop_tween.is_valid():
+		_sprite.scale = Vector2(_sprite_scale, _sprite_scale)
+
+
 func cancel_drag() -> void:
 	_is_pointer_down = false
 	_queued_drop = false

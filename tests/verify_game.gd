@@ -28,12 +28,15 @@ func _run_all() -> void:
 	await _test_no_stale_contact_teleport()
 	_test_danger_detector_rules()
 	_test_combo_splash_chance()
+	await _test_edge_splatter_layout_and_edges()
 	await _test_modes_and_save_manager()
 	await _test_frenzy_sticky_property()
 	await _test_frenzy_bomb_property()
 	await _test_frenzy_nuclear_property()
 	await _test_frenzy_concrete_property()
 	await _test_frenzy_charged_property()
+	await _test_skin_system()
+	await _test_localization_and_language_modal()
 
 	await get_tree().process_frame
 	await get_tree().process_frame
@@ -526,6 +529,83 @@ func _test_combo_splash_chance() -> void:
 		prev = c
 
 
+func _test_edge_splatter_layout_and_edges() -> void:
+	var game := (ResourceLoader.load("res://scenes/game/game.tscn") as PackedScene).instantiate()
+	add_child(game)
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	var splatter: EdgeSplatter = game._edge_splatter
+	var vp_size: Vector2 = game.get_viewport_rect().size
+	_assert(splatter != null, "Game scene must create _edge_splatter")
+	_assert(vp_size.x > 0.0 and vp_size.y > 0.0, "Viewport size must be positive")
+	_assert(splatter.size == vp_size, "EdgeSplatter must match full viewport size %s, got %s" % [str(vp_size), str(splatter.size)])
+	_assert(
+		is_zero_approx(splatter.offset_left) and is_zero_approx(splatter.offset_top)
+		and is_zero_approx(splatter.offset_right) and is_zero_approx(splatter.offset_bottom),
+		"EdgeSplatter full-rect offsets must all be 0.0"
+	)
+
+	var w := vp_size.x
+	var h := vp_size.y
+	var edges: Array[int] = [
+		EdgeSplatter.Edge.LEFT,
+		EdgeSplatter.Edge.RIGHT,
+		EdgeSplatter.Edge.TOP_LEFT,
+		EdgeSplatter.Edge.TOP_RIGHT,
+		EdgeSplatter.Edge.BOTTOM_LEFT,
+		EdgeSplatter.Edge.BOTTOM_RIGHT,
+	]
+	for edge in edges:
+		splatter.clear()
+		splatter._spawn_splat(edge, Color.RED, 1.0, 0.0)
+		_assert(splatter._splats.size() == 1, "Expected 1 splat for edge %d" % edge)
+		var c := splatter._splats[0].center
+		match edge:
+			EdgeSplatter.Edge.LEFT:
+				_assert(c.x < w * 0.25, "LEFT splat x (%f) must stay on left edge" % c.x)
+				_assert(c.y >= h * 0.28 and c.y <= h * 0.72, "LEFT splat y (%f) must be in middle band" % c.y)
+			EdgeSplatter.Edge.RIGHT:
+				_assert(c.x > w * 0.75, "RIGHT splat x (%f) must stay on right edge" % c.x)
+				_assert(c.y >= h * 0.28 and c.y <= h * 0.72, "RIGHT splat y (%f) must be in middle band" % c.y)
+			EdgeSplatter.Edge.TOP_LEFT:
+				_assert(c.x < w * 0.25, "TOP_LEFT splat x (%f) must stay on left edge" % c.x)
+				_assert(c.y >= h * 0.10 and c.y <= h * 0.25, "TOP_LEFT splat y (%f) must be in top band" % c.y)
+			EdgeSplatter.Edge.TOP_RIGHT:
+				_assert(c.x > w * 0.75, "TOP_RIGHT splat x (%f) must stay on right edge" % c.x)
+				_assert(c.y >= h * 0.10 and c.y <= h * 0.25, "TOP_RIGHT splat y (%f) must be in top band" % c.y)
+			EdgeSplatter.Edge.BOTTOM_LEFT:
+				_assert(c.x < w * 0.25, "BOTTOM_LEFT splat x (%f) must stay on left edge" % c.x)
+				_assert(c.y >= h * 0.72 and c.y <= h * 0.86, "BOTTOM_LEFT splat y (%f) must be in bottom band" % c.y)
+			EdgeSplatter.Edge.BOTTOM_RIGHT:
+				_assert(c.x > w * 0.75, "BOTTOM_RIGHT splat x (%f) must stay on right edge" % c.x)
+				_assert(c.y >= h * 0.72 and c.y <= h * 0.86, "BOTTOM_RIGHT splat y (%f) must be in bottom band" % c.y)
+
+	splatter.clear()
+	var saw_left := false
+	var saw_right := false
+	var saw_top := false
+	var saw_middle := false
+	var saw_bottom := false
+	for _i in range(6):
+		splatter.splash(PackedColorArray([Color.RED, Color.YELLOW]), 4)
+		for s in splatter._splats:
+			if s.center.x < w * 0.5:
+				saw_left = true
+			else:
+				saw_right = true
+			if s.center.y < h * 0.3:
+				saw_top = true
+			elif s.center.y <= h * 0.7:
+				saw_middle = true
+			else:
+				saw_bottom = true
+	_assert(saw_left and saw_right, "Splashes must span both left and right edges")
+	_assert(saw_top and saw_middle and saw_bottom, "Splashes must span top, middle, and bottom regions")
+
+	game.queue_free()
+
+
 func _test_danger_detector_rules() -> void:
 	var detector := DangerDetector.new()
 	detector.line_y = 160.0
@@ -916,3 +996,193 @@ func _test_frenzy_charged_property() -> void:
 	_assert(board.score == FruitRegistry.catalog.get_fruit(1).score, "Merging charged fruit must award merge score")
 
 	board.queue_free()
+
+
+func _test_skin_system() -> void:
+	var prev_skin := FruitRegistry.active_skin_id
+	var catalog := FruitRegistry.catalog
+	var skins := FruitRegistry.skins
+
+	_assert(skins.get_count() == 3, "Expected 3 skins, got %d" % skins.get_count())
+	for sid in ["classic", "rotten", "livestock"]:
+		_assert(skins.has_skin(sid), "Missing skin '%s' in SkinCatalog" % sid)
+
+	# Verify every skin has all 15 AtlasTextures matching classic dimensions, 4x scale, and non-empty palettes
+	var classic_def := skins.get_skin("classic")
+	for sid in ["classic", "rotten", "livestock"]:
+		var skin := skins.get_skin(sid)
+		FruitRegistry.set_skin(sid, false)
+		for i in range(catalog.get_count()):
+			var raw := skin.load_texture(i)
+			_assert(raw is AtlasTexture, "Skin '%s' level %d must load an AtlasTexture" % [sid, i])
+			var classic_raw := classic_def.load_texture(i)
+			if raw is AtlasTexture and classic_raw is AtlasTexture:
+				var sz := (raw as AtlasTexture).region.size
+				var c_sz := (classic_raw as AtlasTexture).region.size
+				_assert(sz == c_sz, "Skin '%s' level %d region size %s must match classic %s" % [sid, i, sz, c_sz])
+			_assert(FruitRegistry.textures.get_texture(i) != null, "Skin '%s' baked texture missing for level %d" % [sid, i])
+			_assert(is_equal_approx(FruitRegistry.textures.get_sprite_scale(i), 4.0), "Skin '%s' level %d scale must be 4.0" % [sid, i])
+			_assert(not FruitRegistry.textures.get_palette(i).is_empty(), "Skin '%s' level %d palette must not be empty" % [sid, i])
+
+	# Invalid skin id must be rejected without changing active skin
+	FruitRegistry.set_skin("classic", false)
+	var invalid_ok := FruitRegistry.set_skin("nonexistent", false)
+	_assert(not invalid_ok, "set_skin('nonexistent') must return false")
+	_assert(FruitRegistry.active_skin_id == "classic", "Invalid set_skin must not change active_skin_id")
+
+	# Signal emission and persistence
+	var signal_ids: Array[String] = []
+	var on_changed := func(new_id: String) -> void: signal_ids.append(new_id)
+	FruitRegistry.skin_changed.connect(on_changed)
+
+	var switched := FruitRegistry.set_skin("rotten", true)
+	_assert(switched, "Switching from classic to rotten should return true")
+	_assert(signal_ids == ["rotten"], "skin_changed must emit ['rotten'], got %s" % str(signal_ids))
+	_assert(SaveManager.get_skin_id() == "rotten", "SaveManager.get_skin_id() must persist 'rotten'")
+
+	FruitRegistry.skin_changed.disconnect(on_changed)
+
+	# Live refresh on GameBoard (active fruit + dropper)
+	FruitRegistry.set_skin("classic", false)
+	var board := GameBoard.new()
+	add_child(board)
+	await get_tree().process_frame
+
+	var live_fruit := _spawn_test_fruit(board, 0, Vector2(0.0, 720.0))
+	FruitRegistry.set_skin("livestock", false)
+	var fruit_tex := live_fruit._sprite.texture as AtlasTexture
+	var dropper_tex := board.dropper._sprite.texture as AtlasTexture
+	_assert(fruit_tex != null and fruit_tex.atlas != null and fruit_tex.atlas.resource_path == "res://assets/skins/livestock/suika_livestock_spritesheet.png", "Active fruit sprite must live-update to livestock spritesheet")
+	_assert(dropper_tex != null and dropper_tex.atlas != null and dropper_tex.atlas.resource_path == "res://assets/skins/livestock/suika_livestock_spritesheet.png", "Dropper sprite must live-update to livestock spritesheet")
+	board.queue_free()
+
+	# SkinModal instantiation, card count, open & close
+	var modal := SkinModal.new()
+	add_child(modal)
+	await get_tree().process_frame
+	_assert(modal.get_card_count() == skins.get_count(), "SkinModal card count must match SkinCatalog count")
+	modal.open()
+	_assert(modal.is_open(), "SkinModal must report is_open() == true after open()")
+	await get_tree().process_frame
+	modal.close()
+	_assert(not modal.is_open(), "SkinModal must report is_open() == false after close()")
+	modal.queue_free()
+
+	# Restore original skin preference
+	FruitRegistry.set_skin(prev_skin, true)
+	if SaveManager.get_skin_id() != prev_skin:
+		SaveManager.set_skin_id(prev_skin)
+
+
+func _test_localization_and_language_modal() -> void:
+	var prev_lang := Loc.language
+	var prev_saved := SaveManager.get_language()
+
+	var expected_langs: Array[String] = ["en", "id", "ru", "ja", "sk", "cs", "pl", "ms"]
+	_assert(Loc.LANGUAGES.size() == expected_langs.size(), "Expected %d languages, got %d" % [expected_langs.size(), Loc.LANGUAGES.size()])
+	for code in expected_langs:
+		_assert(Loc.LANGUAGES.has(code), "Missing language code '%s' in Loc.LANGUAGES" % code)
+		_assert(not Loc.get_language_name(code).is_empty(), "Missing display name for '%s'" % code)
+		_assert(not Loc.get_language_subtitle(code).is_empty(), "Missing subtitle for '%s'" % code)
+
+	# Key parity & printf placeholder parity against English
+	var en_table := Loc.get_strings("en")
+	var placeholder_re := RegEx.new()
+	placeholder_re.compile("%(?:\\.\\d+)?[sdf]")
+	for code in expected_langs:
+		var table := Loc.get_strings(code)
+		for key in en_table.keys():
+			_assert(table.has(key), "Language '%s' missing translation key '%s'" % [code, key])
+			if table.has(key):
+				var val := String(table[key])
+				_assert(not val.is_empty(), "Language '%s' has empty string for key '%s'" % [code, key])
+				var en_ph: Array[String] = []
+				for m in placeholder_re.search_all(String(en_table[key])):
+					en_ph.append(m.get_string())
+				var tr_ph: Array[String] = []
+				for m in placeholder_re.search_all(val):
+					tr_ph.append(m.get_string())
+				_assert(tr_ph == en_ph, "Placeholder mismatch in '%s' key '%s': expected %s, got %s" % [code, key, str(en_ph), str(tr_ph)])
+
+	# Device locale resolution + aliases
+	_assert(Loc.resolve_device_language("en") == "en", "Expected 'en' -> 'en'")
+	_assert(Loc.resolve_device_language("id") == "id", "Expected 'id' -> 'id'")
+	_assert(Loc.resolve_device_language("in") == "id", "Expected legacy 'in' -> 'id'")
+	_assert(Loc.resolve_device_language("ru_RU") == "ru", "Expected 'ru_RU' -> 'ru'")
+	_assert(Loc.resolve_device_language("ja-JP") == "ja", "Expected 'ja-JP' -> 'ja'")
+	_assert(Loc.resolve_device_language("jp") == "ja", "Expected 'jp' -> 'ja'")
+	_assert(Loc.resolve_device_language("sk") == "sk", "Expected 'sk' -> 'sk'")
+	_assert(Loc.resolve_device_language("cs_CZ") == "cs", "Expected 'cs_CZ' -> 'cs'")
+	_assert(Loc.resolve_device_language("cz") == "cs", "Expected 'cz' -> 'cs'")
+	_assert(Loc.resolve_device_language("pl") == "pl", "Expected 'pl' -> 'pl'")
+	_assert(Loc.resolve_device_language("ms") == "ms", "Expected 'ms' -> 'ms'")
+	_assert(Loc.resolve_device_language("zsm") == "ms", "Expected 'zsm' -> 'ms'")
+	_assert(Loc.resolve_device_language("xx") == "en", "Expected unknown locale -> 'en'")
+	_assert(Loc.resolve_device_language("") == "en", "Expected empty locale -> 'en'")
+
+	# set_language switching, signal emission, persistence, and invalid rejection
+	Loc.set_language("en")
+	var emitted: Array[String] = []
+	var on_lang_changed := func(c: String) -> void: emitted.append(c)
+	Loc.language_changed.connect(on_lang_changed)
+	_assert(not Loc.set_language("xx"), "Invalid language 'xx' must return false")
+	_assert(Loc.language == "en", "Invalid set_language must not alter Loc.language")
+	_assert(Loc.set_language("ja"), "Switching en -> ja must return true")
+	_assert(emitted == ["ja"], "language_changed must emit ['ja'], got %s" % str(emitted))
+	_assert(SaveManager.get_language() == "ja", "SaveManager must persist 'ja'")
+	_assert(not Loc.set_language("ja"), "Setting already active language must return false")
+	Loc.language_changed.disconnect(on_lang_changed)
+
+	# FlagIcons procedural patterns
+	for code in expected_langs:
+		_assert(FlagIcons.has_flag(code), "FlagIcons missing support for '%s'" % code)
+		var tex := FlagIcons.get_flag(code)
+		_assert(tex != null, "FlagIcons returned null texture for '%s'" % code)
+		if tex != null:
+			var img := tex.get_image()
+			_assert(img.get_width() == FlagIcons.FLAG_W and img.get_height() == FlagIcons.FLAG_H, "Flag '%s' size must be %dx%d" % [code, FlagIcons.FLAG_W, FlagIcons.FLAG_H])
+			var center_px := img.get_pixel(FlagIcons.FLAG_W / 2, FlagIcons.FLAG_H / 2)
+			_assert(center_px.a > 0.9, "Flag '%s' center pixel must be opaque" % code)
+	var ru_img := FlagIcons.get_flag("ru").get_image()
+	var sk_img := FlagIcons.get_flag("sk").get_image()
+	_assert(ru_img.get_pixel(27, 30) != sk_img.get_pixel(27, 30), "Slovakia shield must make its flag visually distinct from Russia")
+
+	# Font fallback coverage across Latin, Polish, Czech/Slovak, Russian, Japanese
+	for bold_flag in [false, true]:
+		var font := UITheme.get_font(bold_flag)
+		for sample_cp in [ord("A"), ord("ł"), ord("č"), ord("П"), ord("あ"), ord("果")]:
+			_assert(font.has_char(sample_cp), "Font (bold=%s) missing glyph for U+%04X" % [str(bold_flag), sample_cp])
+
+	# LanguageModal instantiation, card count, open/close, and selection
+	Loc.set_language("en")
+	var modal := LanguageModal.new()
+	add_child(modal)
+	await get_tree().process_frame
+	_assert(modal.get_card_count() == expected_langs.size(), "LanguageModal card count must match Loc.LANGUAGES")
+	modal.open()
+	_assert(modal.is_open(), "LanguageModal must report is_open() == true after open()")
+	await get_tree().process_frame
+	var selected_emits: Array[String] = []
+	modal.language_selected.connect(func(c: String) -> void: selected_emits.append(c))
+	var ru_entry_btn: Button = modal._card_entries[2]["button"]
+	ru_entry_btn.pressed.emit()
+	_assert(Loc.language == "ru", "Clicking Russian card must set Loc.language to 'ru'")
+	_assert(selected_emits == ["ru"], "LanguageModal must emit language_selected('ru')")
+	modal.close()
+	_assert(not modal.is_open(), "LanguageModal must report is_open() == false after close()")
+	modal.queue_free()
+
+	# Live language switching on Menu scene
+	Loc.set_language("en")
+	var menu_scene := (ResourceLoader.load(SceneManager.MENU_SCENE) as PackedScene).instantiate()
+	add_child(menu_scene)
+	await get_tree().process_frame
+	Loc.set_language("pl")
+	await get_tree().process_frame
+	_assert(menu_scene._collection_title.text == Loc.t("menu.collection"), "Menu collection title must live-update to Polish")
+	menu_scene.queue_free()
+
+	# Restore original language preference
+	Loc._apply(prev_lang)
+	if SaveManager.get_language() != prev_saved:
+		SaveManager.set_language(prev_saved)

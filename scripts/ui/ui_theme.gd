@@ -72,14 +72,14 @@ static var _icon_shader: Shader
 static func get_font(bold: bool = false) -> Font:
 	if bold:
 		if _font_bold == null:
-			_font_bold = _load_font(FONT_BOLD_PATH)
+			_font_bold = _load_font(FONT_BOLD_PATH, true)
 		return _font_bold
 	if _font_medium == null:
-		_font_medium = _load_font(FONT_MEDIUM_PATH)
+		_font_medium = _load_font(FONT_MEDIUM_PATH, false)
 	return _font_medium
 
 
-static func _load_font(path: String) -> Font:
+static func _load_font(path: String, bold: bool = false) -> Font:
 	var font: Font = null
 	if ResourceLoader.exists(path):
 		font = load(path) as Font
@@ -89,7 +89,27 @@ static func _load_font(path: String) -> Font:
 			font = ff
 	if font == null:
 		font = ThemeDB.fallback_font
-	return font
+	var fallback := SystemFont.new()
+	fallback.font_names = PackedStringArray([
+		"Hiragino Maru Gothic ProN",
+		"Rounded Mplus 1c",
+		"Hiragino Sans",
+		"Yu Gothic UI",
+		"Meiryo",
+		"Noto Sans CJK JP",
+		"Noto Sans JP",
+		"Noto Sans",
+		"Segoe UI",
+		"Roboto",
+		"DejaVu Sans",
+		"Arial",
+		"sans-serif",
+	])
+	fallback.font_weight = 700 if bold else 500
+	var fv := FontVariation.new()
+	fv.base_font = font
+	fv.fallbacks = [fallback]
+	return fv
 
 
 static func get_theme() -> Theme:
@@ -218,6 +238,10 @@ static func style_orange_button(btn: Button, radius: int = 26, font_size: int = 
 	style_chunky_button(btn, ORANGE, ORANGE_SHADOW, Color.WHITE, font_size, radius)
 
 
+static func style_blue_button(btn: Button, radius: int = 26, font_size: int = 30) -> void:
+	style_chunky_button(btn, BLUE, BLUE_SHADOW, Color.WHITE, font_size, radius)
+
+
 static func style_secondary_button(btn: Button, radius: int = 24, font_size: int = 26) -> void:
 	style_chunky_button(btn, CARD_WHITE, CARD_SHADOW, TEXT_DARK, font_size, radius, false)
 
@@ -281,6 +305,45 @@ static func set_button_content(
 	box.offset_bottom = -8.0
 	if not icon_name.is_empty():
 		var icon := PixelIcons.make_rect(icon_name, icon_px, color)
+		icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		box.add_child(icon)
+	var lbl := make_label(text, font_size, color, true, 8 if outline_color.a > 0.0 else 0, outline_color)
+	lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	box.add_child(lbl)
+	btn.add_child(box)
+	return lbl
+
+
+## Texture + text centred on a button (for flag icons or custom textures).
+static func set_button_texture_content(
+	btn: Button,
+	tex: Texture2D,
+	text: String,
+	font_size: int = 26,
+	color: Color = TEXT_DARK,
+	outline_color: Color = Color(0.0, 0.0, 0.0, 0.0),
+	icon_size: Vector2 = Vector2(36.0, 24.0),
+	nearest: bool = false
+) -> Label:
+	btn.text = ""
+	for child in btn.get_children():
+		if child.has_meta(&"button_content") or child.has_meta(&"pixel_icon"):
+			child.queue_free()
+	var box := HBoxContainer.new()
+	box.set_meta(&"button_content", true)
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.add_theme_constant_override("separation", 10)
+	box.set_anchors_preset(Control.PRESET_FULL_RECT)
+	box.offset_bottom = -8.0
+	if tex != null:
+		var icon := TextureRect.new()
+		icon.texture = tex
+		icon.custom_minimum_size = icon_size
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST if nearest else CanvasItem.TEXTURE_FILTER_LINEAR
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		box.add_child(icon)
 	var lbl := make_label(text, font_size, color, true, 8 if outline_color.a > 0.0 else 0, outline_color)

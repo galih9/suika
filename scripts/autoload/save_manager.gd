@@ -19,6 +19,7 @@ const SECTION_AUDIO := "audio"
 const KEY_SFX_ENABLED := "sfx_enabled"
 const SECTION_SETTINGS := "settings"
 const KEY_LANGUAGE := "language"
+const KEY_SKIN := "skin"
 const SECTION_COLLECTION := "collection"
 const KEY_DISCOVERED := "discovered_mask"
 const KEY_SEEN_POWERUPS := "seen_powerups_mask"
@@ -32,6 +33,7 @@ var _seen_powerups_mask: int = 0
 var _total_merges: int = 0
 var _games_played: int = 0
 var _language: String = ""
+var _skin_id: String = SkinCatalog.DEFAULT_SKIN_ID
 
 
 func _ready() -> void:
@@ -51,6 +53,7 @@ func _load() -> void:
 		_discovered_mask = int(_config.get_value(SECTION_COLLECTION, KEY_DISCOVERED, 1))
 		_seen_powerups_mask = int(_config.get_value(SECTION_COLLECTION, KEY_SEEN_POWERUPS, 0))
 		_language = String(_config.get_value(SECTION_SETTINGS, KEY_LANGUAGE, ""))
+		_skin_id = String(_config.get_value(SECTION_SETTINGS, KEY_SKIN, SkinCatalog.DEFAULT_SKIN_ID))
 	else:
 		_high_score = 0
 		_frenzy_high_score = 0
@@ -59,6 +62,7 @@ func _load() -> void:
 		_sfx_enabled = true
 		_discovered_mask = 1
 		_seen_powerups_mask = 0
+		_skin_id = SkinCatalog.DEFAULT_SKIN_ID
 	# The first fruit (Blueberry) is always known.
 	_discovered_mask |= 1
 
@@ -72,6 +76,7 @@ func _save() -> void:
 	_config.set_value(SECTION_COLLECTION, KEY_DISCOVERED, _discovered_mask)
 	_config.set_value(SECTION_COLLECTION, KEY_SEEN_POWERUPS, _seen_powerups_mask)
 	_config.set_value(SECTION_SETTINGS, KEY_LANGUAGE, _language)
+	_config.set_value(SECTION_SETTINGS, KEY_SKIN, _skin_id)
 	_config.save(SAVE_PATH)
 
 
@@ -91,7 +96,7 @@ func _try_load_legacy_save() -> Error:
 
 # --- Settings -------------------------------------------------------------------------------
 
-## Saved language code ("en" / "id"), or "" if the player never picked one.
+## Saved language code from Loc.LANGUAGES, or "" if the player never picked one.
 func get_language() -> String:
 	return _language
 
@@ -100,6 +105,17 @@ func set_language(code: String) -> void:
 	if _language == code:
 		return
 	_language = code
+	_save()
+
+
+func get_skin_id() -> String:
+	return _skin_id
+
+
+func set_skin_id(skin_id: String) -> void:
+	if _skin_id == skin_id:
+		return
+	_skin_id = skin_id
 	_save()
 
 

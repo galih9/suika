@@ -100,6 +100,13 @@ func configure(
 	_overlay.configure(prop, def.radius, false)
 
 
+func refresh_texture(tex: Texture2D, sprite_scale: float) -> void:
+	_sprite.texture = tex
+	_base_sprite_scale = sprite_scale
+	if _scale_tween == null or not _scale_tween.is_valid():
+		_sprite.scale = Vector2(sprite_scale, sprite_scale)
+
+
 func activate(
 	pos: Vector2,
 	lin_vel: Vector2,

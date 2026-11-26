@@ -40,6 +40,8 @@ const BOARD_HEIGHT := 860.0
 @onready var _pause_restart_button: Button = %PauseRestartButton
 @onready var _pause_sound_button: Button = %PauseSoundButton
 @onready var _pause_power_ups_button: Button = %PausePowerUpsButton
+@onready var _pause_skins_button: Button = %PauseSkinsButton
+@onready var _pause_language_button: Button = %PauseLanguageButton
 @onready var _pause_menu_button: Button = %PauseMenuButton
 
 @onready var _game_over_overlay: Control = %GameOverOverlay
@@ -60,6 +62,8 @@ const BOARD_HEIGHT := 860.0
 var _top_hud_bottom: float = 170.0
 var _bottom_bar_height: float = 124.0
 var _power_up_modal: PowerUpModal
+var _skin_modal: SkinModal
+var _language_modal: LanguageModal
 var _edge_splatter: EdgeSplatter
 var _power_info_button: Button
 var _modal_paused_game: bool = false
@@ -105,6 +109,8 @@ func _ready() -> void:
 	_pause_restart_button.pressed.connect(_on_restart_pressed)
 	_pause_sound_button.pressed.connect(_on_sound_pressed)
 	_pause_power_ups_button.pressed.connect(_on_power_ups_pressed)
+	_pause_skins_button.pressed.connect(_on_skins_pressed)
+	_pause_language_button.pressed.connect(_on_language_pressed)
 	_pause_menu_button.pressed.connect(_on_menu_pressed)
 	_play_again_button.pressed.connect(_on_restart_pressed)
 	_game_over_menu_button.pressed.connect(_on_menu_pressed)
@@ -117,6 +123,15 @@ func _ready() -> void:
 	_power_up_modal = PowerUpModal.new()
 	add_child(_power_up_modal)
 	_power_up_modal.closed.connect(_on_power_up_modal_closed)
+
+	_skin_modal = SkinModal.new()
+	add_child(_skin_modal)
+
+	_language_modal = LanguageModal.new()
+	add_child(_language_modal)
+
+	FruitRegistry.skin_changed.connect(_on_skin_changed)
+	Loc.language_changed.connect(_on_language_changed)
 
 	get_viewport().size_changed.connect(_layout_board)
 	_pause_overlay.visible = false
@@ -141,6 +156,10 @@ func _ready() -> void:
 
 
 func _exit_tree() -> void:
+	if Loc.language_changed.is_connected(_on_language_changed):
+		Loc.language_changed.disconnect(_on_language_changed)
+	if FruitRegistry.skin_changed.is_connected(_on_skin_changed):
+		FruitRegistry.skin_changed.disconnect(_on_skin_changed)
 	# Never leave a screen-shake offset behind for the next scene.
 	if is_inside_tree():
 		get_viewport().canvas_transform = Transform2D.IDENTITY
@@ -212,6 +231,10 @@ func _apply_styles() -> void:
 	UITheme.style_secondary_button(_pause_sound_button)
 	UITheme.style_secondary_button(_pause_power_ups_button)
 	UITheme.set_button_content(_pause_power_ups_button, "bolt", Loc.t("menu.powerups"), 24, UITheme.TEXT_DARK, Color(0, 0, 0, 0), 26.0)
+	UITheme.style_blue_button(_pause_skins_button)
+	UITheme.set_button_content(_pause_skins_button, "palette", Loc.t("menu.skins"), 26, Color.WHITE, UITheme.BLUE_SHADOW.darkened(0.2), 28.0)
+	UITheme.style_secondary_button(_pause_language_button)
+	UITheme.set_button_texture_content(_pause_language_button, FlagIcons.get_flag(Loc.language), Loc.t("menu.language"), 24, UITheme.TEXT_DARK, Color(0, 0, 0, 0), Vector2(36.0, 24.0))
 	UITheme.style_secondary_button(_pause_menu_button)
 	UITheme.set_button_content(_pause_menu_button, "home", Loc.t("game.home"), 28, UITheme.TEXT_DARK, Color(0, 0, 0, 0), 30.0)
 
@@ -379,8 +402,7 @@ func _on_board_fruit_merged(level: int, local_pos: Vector2, points: int, is_max_
 	_last_merge_time = _clock
 
 	var ui_pos := _board_to_ui(local_pos)
-	var def := FruitRegistry.catalog.get_fruit(level)
-	var col := def.primary_color if def != null else UITheme.GOLD
+	var col := FruitRegistry.textures.get_primary_color(level)
 	var font_size := int(lerpf(30.0, 54.0, clampf(float(level) / 14.0, 0.0, 1.0)))
 	_spawn_float_text("+%d" % points, ui_pos, font_size, Color.WHITE, col.darkened(0.35))
 
@@ -653,6 +675,48 @@ func _on_power_up_modal_closed() -> void:
 		_modal_paused_game = false
 		if not _pause_overlay.visible:
 			get_tree().paused = false
+
+
+func _on_skins_pressed() -> void:
+	_skin_modal.open()
+
+
+func _on_language_pressed() -> void:
+	_language_modal.open()
+
+
+func _on_language_changed(_code: String) -> void:
+	_pause_title.text = Loc.t("game.paused")
+	UITheme.set_button_content(_resume_button, "play", Loc.t("game.resume"), 36, Color.WHITE, UITheme.GREEN_SHADOW.darkened(0.2), 34.0)
+	UITheme.set_button_content(_pause_restart_button, "restart", Loc.t("game.restart"), 30, Color.WHITE, UITheme.ORANGE_SHADOW.darkened(0.2), 30.0)
+	_refresh_sound_button()
+	UITheme.set_button_content(_pause_power_ups_button, "bolt", Loc.t("menu.powerups"), 24, UITheme.TEXT_DARK, Color(0, 0, 0, 0), 26.0)
+	UITheme.set_button_content(_pause_skins_button, "palette", Loc.t("menu.skins"), 26, Color.WHITE, UITheme.BLUE_SHADOW.darkened(0.2), 28.0)
+	UITheme.set_button_texture_content(_pause_language_button, FlagIcons.get_flag(Loc.language), Loc.t("menu.language"), 24, UITheme.TEXT_DARK, Color(0, 0, 0, 0), Vector2(36.0, 24.0))
+	UITheme.set_button_content(_pause_menu_button, "home", Loc.t("game.home"), 28, UITheme.TEXT_DARK, Color(0, 0, 0, 0), 30.0)
+
+	_next_title.text = Loc.t("game.next")
+	_new_best_label.text = Loc.t("game.new_best_badge")
+	UITheme.set_button_content(_play_again_button, "restart", Loc.t("game.play_again"), 36, Color.WHITE, UITheme.GREEN_SHADOW.darkened(0.2), 32.0)
+	UITheme.set_button_content(_game_over_menu_button, "home", Loc.t("game.home"), 28, UITheme.TEXT_DARK, Color(0, 0, 0, 0), 30.0)
+
+	var best_key := "game.frenzy_best" if _board.game_mode == GameMode.Mode.FRENZY else "game.best"
+	_best_value.text = Loc.t(best_key, [UITheme.format_number(_board.best_score)])
+	if _next_prop_tag.visible:
+		_next_prop_label.text = FruitProperty.get_short_label(_board.next_property as FruitProperty.Type)
+	if _power_info_button != null and is_instance_valid(_power_info_button):
+		_power_info_button.tooltip_text = Loc.t("menu.powerups")
+
+	_fruit_guide.refresh_language()
+	_power_up_modal.refresh_language()
+	_skin_modal.refresh_language()
+	_language_modal.refresh_language()
+
+
+func _on_skin_changed(_skin_id: String) -> void:
+	_next_icon.texture = FruitRegistry.textures.get_texture(_board.next_level)
+	_fruit_guide.refresh_skin()
+	_power_up_modal.refresh_skin()
 
 
 func _on_sound_pressed() -> void:

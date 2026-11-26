@@ -40,7 +40,7 @@ var _last_edges: Array[int] = []
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	set_anchors_preset(Control.PRESET_FULL_RECT)
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_rng.randomize()
 	set_process(false)
 
@@ -90,8 +90,11 @@ func _pick_edges(count: int) -> Array[int]:
 
 
 func _spawn_splat(edge: int, base: Color, size_boost: float, delay: float) -> void:
-	var w := size.x
-	var h := size.y
+	var rect_size := size
+	if rect_size.x <= 0.0 or rect_size.y <= 0.0:
+		rect_size = get_viewport_rect().size
+	var w := rect_size.x
+	var h := rect_size.y
 	var s := Splat.new()
 	s.radius = _rng.randf_range(70.0, 110.0) * size_boost
 	s.delay = delay

@@ -297,6 +297,24 @@ layout_mode = 2
 size_flags_horizontal = 3
 focus_mode = 0
 
+[node name="PauseCustomRow" type="HBoxContainer" parent="PauseOverlay/PauseCenter/PauseCard/PauseVBox"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="PauseSkinsButton" type="Button" parent="PauseOverlay/PauseCenter/PauseCard/PauseVBox/PauseCustomRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 80)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+
+[node name="PauseLanguageButton" type="Button" parent="PauseOverlay/PauseCenter/PauseCard/PauseVBox/PauseCustomRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 80)
+layout_mode = 2
+size_flags_horizontal = 3
+focus_mode = 0
+
 [node name="PauseMenuButton" type="Button" parent="PauseOverlay/PauseCenter/PauseCard/PauseVBox"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 80)

@@ -19,6 +19,11 @@ const PREVIEW_FRUIT_LEVEL := 6
 
 var _dim: ColorRect
 var _card: PanelContainer
+var _title_label: Label
+var _subtitle_label: Label
+var _ok_button: Button
+var _row_entries: Array[Dictionary] = []
+var _preview_icons: Array[TextureRect] = []
 var _is_open: bool = false
 
 
@@ -66,29 +71,30 @@ func _build() -> void:
 	var bolt := PixelIcons.make_rect("bolt", 40.0, UITheme.PINK)
 	header.add_child(bolt)
 
-	var title := UITheme.make_label(Loc.t("pu.title"), 40, UITheme.TEXT_DARK, true)
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header.add_child(title)
+	_title_label = UITheme.make_label(Loc.t("pu.title"), 40, UITheme.TEXT_DARK, true)
+	_title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(_title_label)
 
 	var close_btn := UITheme.make_icon_button("close", UITheme.CARD_WHITE, UITheme.CARD_SHADOW, UITheme.TEXT_MUTED, 60.0, 26.0)
 	close_btn.pressed.connect(close)
 	header.add_child(close_btn)
 
-	var sub := UITheme.make_label(Loc.t("pu.subtitle"), 20, UITheme.TEXT_MUTED)
-	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	sub.custom_minimum_size = Vector2(560, 0)
-	col.add_child(sub)
+	_subtitle_label = UITheme.make_label(Loc.t("pu.subtitle"), 20, UITheme.TEXT_MUTED)
+	_subtitle_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_subtitle_label.custom_minimum_size = Vector2(560, 0)
+	col.add_child(_subtitle_label)
 
+	_row_entries.clear()
 	for prop in ENTRIES:
 		col.add_child(_make_row(prop, Loc.t("pu.%s.desc" % Loc.prop_key(prop))))
 
-	var ok_btn := Button.new()
-	ok_btn.text = Loc.t("pu.ok")
-	ok_btn.custom_minimum_size = Vector2(0, 84)
-	ok_btn.focus_mode = Control.FOCUS_NONE
-	UITheme.style_primary_button(ok_btn, 28, 32)
-	ok_btn.pressed.connect(close)
-	col.add_child(ok_btn)
+	_ok_button = Button.new()
+	_ok_button.text = Loc.t("pu.ok")
+	_ok_button.custom_minimum_size = Vector2(0, 84)
+	_ok_button.focus_mode = Control.FOCUS_NONE
+	UITheme.style_primary_button(_ok_button, 28, 32)
+	_ok_button.pressed.connect(close)
+	col.add_child(_ok_button)
 
 
 func _make_row(prop: FruitProperty.Type, desc: String) -> Control:
@@ -102,7 +108,10 @@ func _make_row(prop: FruitProperty.Type, desc: String) -> Control:
 	row.add_theme_constant_override("separation", 14)
 	row_panel.add_child(row)
 
-	row.add_child(make_power_up_icon(prop, 64.0))
+	var icon := make_power_up_icon(prop, 64.0)
+	if FruitRegistry.textures.get_property_icon(prop) == null:
+		_preview_icons.append(icon)
+	row.add_child(icon)
 
 	var text_col := VBoxContainer.new()
 	text_col.add_theme_constant_override("separation", 0)
@@ -116,6 +125,11 @@ func _make_row(prop: FruitProperty.Type, desc: String) -> Control:
 	desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	desc_lbl.custom_minimum_size = Vector2(440, 0)
 	text_col.add_child(desc_lbl)
+	_row_entries.append({
+		"prop": prop,
+		"name_label": name_lbl,
+		"desc_label": desc_lbl,
+	})
 	return row_panel
 
 
@@ -138,10 +152,34 @@ static func make_power_up_icon(prop: FruitProperty.Type, px: float = 56.0) -> Te
 	return icon
 
 
+func refresh_language() -> void:
+	if _title_label != null:
+		_title_label.text = Loc.t("pu.title")
+	if _subtitle_label != null:
+		_subtitle_label.text = Loc.t("pu.subtitle")
+	if _ok_button != null:
+		_ok_button.text = Loc.t("pu.ok")
+	for entry in _row_entries:
+		var prop: FruitProperty.Type = entry["prop"]
+		var name_lbl: Label = entry["name_label"]
+		var desc_lbl: Label = entry["desc_label"]
+		name_lbl.text = FruitProperty.get_display_name(prop)
+		desc_lbl.text = Loc.t("pu.%s.desc" % Loc.prop_key(prop))
+
+
+func refresh_skin() -> void:
+	var tex := FruitRegistry.textures.get_texture(PREVIEW_FRUIT_LEVEL)
+	for icon in _preview_icons:
+		if icon != null and is_instance_valid(icon):
+			icon.texture = tex
+
+
 func open() -> void:
 	if _is_open:
 		return
 	_is_open = true
+	refresh_language()
+	refresh_skin()
 	visible = true
 	AudioManager.play_click()
 	_dim.modulate.a = 0.0

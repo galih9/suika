@@ -62,8 +62,27 @@ var _rng := RandomNumberGenerator.new()
 func _ready() -> void:
 	_rng.randomize()
 	FruitRegistry.ensure_textures_ready()
+	if not FruitRegistry.skin_changed.is_connected(_on_skin_changed):
+		FruitRegistry.skin_changed.connect(_on_skin_changed)
 	_build_layers()
 	reset_game()
+
+
+func _on_skin_changed(_skin_id: String) -> void:
+	refresh_skin_visuals()
+
+
+func refresh_skin_visuals() -> void:
+	if fruit_pool != null:
+		for fruit in fruit_pool.active_fruits:
+			if fruit == null or fruit.in_pool:
+				continue
+			fruit.refresh_texture(
+				FruitRegistry.textures.get_texture(fruit.level),
+				FruitRegistry.textures.get_sprite_scale(fruit.level)
+			)
+	if dropper != null:
+		dropper.refresh_held_texture(current_level)
 
 
 func _notification(what: int) -> void:
@@ -384,8 +403,7 @@ func _destroy_fruit(fruit: Fruit, spawn_crush_fx: bool) -> void:
 		return
 	# Destroyed fruits never award score.
 	if spawn_crush_fx:
-		var def := FruitRegistry.catalog.get_fruit(fruit.level)
-		var col := def.primary_color if def != null else Color.GRAY
+		var col := FruitRegistry.textures.get_primary_color(fruit.level)
 		merge_effects.spawn_crush_burst(fruit.position, fruit.radius, col)
 	fruit_pool.release(fruit)
 

@@ -10,7 +10,6 @@ const SLOT_SIZE := 100.0
 @onready var _hero: VBoxContainer = %Hero
 @onready var _fruit_trio: HBoxContainer = %FruitTrio
 @onready var _title_label: Label = %TitleLabel
-@onready var _subtitle_label: Label = %SubtitleLabel
 @onready var _best_row: HBoxContainer = %BestRow
 @onready var _collection_card: PanelContainer = %CollectionCard
 @onready var _collection_title: Label = %CollectionTitle
@@ -21,12 +20,18 @@ const SLOT_SIZE := 100.0
 @onready var _frenzy_button: Button = %FrenzyButton
 @onready var _power_ups_button: Button = %PowerUpsButton
 
+var _quit_button: Button
 var _sound_button: Button
+var _skins_button: Button
+var _lang_button: Button
 var _power_up_modal: PowerUpModal
+var _skin_modal: SkinModal
+var _language_modal: LanguageModal
 var _trio_icons: Array[TextureRect] = []
 var _goal_slot: Control
 var _time: float = 0.0
 var _selected_slot: Control
+var _selected_level: int = -1
 
 
 func _ready() -> void:
@@ -45,7 +50,23 @@ func _ready() -> void:
 	_power_up_modal = PowerUpModal.new()
 	add_child(_power_up_modal)
 
+	_skin_modal = SkinModal.new()
+	add_child(_skin_modal)
+
+	_language_modal = LanguageModal.new()
+	add_child(_language_modal)
+
+	FruitRegistry.skin_changed.connect(_on_skin_changed)
+	Loc.language_changed.connect(_on_language_changed)
+
 	_play_intro()
+
+
+func _exit_tree() -> void:
+	if Loc.language_changed.is_connected(_on_language_changed):
+		Loc.language_changed.disconnect(_on_language_changed)
+	if FruitRegistry.skin_changed.is_connected(_on_skin_changed):
+		FruitRegistry.skin_changed.disconnect(_on_skin_changed)
 
 
 func _process(delta: float) -> void:
@@ -65,26 +86,36 @@ func _process(delta: float) -> void:
 # --- Building ----------------------------------------------------------------------------------
 
 func _build_top_bar() -> void:
+	_top_bar.add_theme_constant_override("separation", 10)
 	if not OS.has_feature("mobile") and not OS.has_feature("web"):
-		var quit_btn := UITheme.make_icon_button("close", UITheme.CARD_WHITE, UITheme.CARD_SHADOW, UITheme.TEXT_MUTED, 72.0, 28.0)
-		quit_btn.tooltip_text = Loc.t("menu.quit")
-		quit_btn.pressed.connect(_on_quit_pressed)
-		_top_bar.add_child(quit_btn)
+		_quit_button = UITheme.make_icon_button("close", UITheme.CARD_WHITE, UITheme.CARD_SHADOW, UITheme.TEXT_MUTED, 72.0, 28.0)
+		_quit_button.tooltip_text = Loc.t("menu.quit")
+		_quit_button.pressed.connect(_on_quit_pressed)
+		_top_bar.add_child(_quit_button)
+
+	_skins_button = Button.new()
+	_skins_button.custom_minimum_size = Vector2(156, 72)
+	_skins_button.focus_mode = Control.FOCUS_NONE
+	_skins_button.tooltip_text = Loc.t("menu.skins")
+	UITheme.style_blue_button(_skins_button, 26, 26)
+	UITheme.set_button_content(_skins_button, "palette", Loc.t("menu.skins"), 24, Color.WHITE, UITheme.BLUE_SHADOW.darkened(0.2), 26.0)
+	_skins_button.pressed.connect(_on_skins_pressed)
+	_top_bar.add_child(_skins_button)
 
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_top_bar.add_child(spacer)
 
-	# Language switch: shows the current language code, tap to cycle EN <-> ID.
-	var lang_btn := Button.new()
-	lang_btn.custom_minimum_size = Vector2(104, 72)
-	lang_btn.focus_mode = Control.FOCUS_NONE
-	lang_btn.tooltip_text = Loc.t("menu.language")
-	UITheme.style_secondary_button(lang_btn, 28, 26)
-	UITheme.set_button_content(lang_btn, "globe", Loc.language.to_upper(), 26, UITheme.TEXT_DARK, Color(0, 0, 0, 0), 26.0)
-	lang_btn.pressed.connect(_on_language_pressed)
-	_top_bar.add_child(lang_btn)
+	# Language picker: shows current flag + code, tap to open the language modal.
+	_lang_button = Button.new()
+	_lang_button.custom_minimum_size = Vector2(124, 72)
+	_lang_button.focus_mode = Control.FOCUS_NONE
+	_lang_button.tooltip_text = Loc.t("menu.language")
+	UITheme.style_secondary_button(_lang_button, 28, 24)
+	UITheme.set_button_texture_content(_lang_button, FlagIcons.get_flag(Loc.language), Loc.language.to_upper(), 24, UITheme.TEXT_DARK, Color(0, 0, 0, 0), Vector2(36.0, 24.0))
+	_lang_button.pressed.connect(_on_language_pressed)
+	_top_bar.add_child(_lang_button)
 
 	_sound_button = UITheme.make_icon_button("sound", UITheme.CARD_WHITE, UITheme.CARD_SHADOW, UITheme.TEXT_DARK, 72.0, 34.0)
 	_sound_button.pressed.connect(_on_sound_pressed)
@@ -94,14 +125,12 @@ func _build_top_bar() -> void:
 
 func _style_static() -> void:
 	_title_label.text = Loc.t("app.title")
-	_subtitle_label.text = Loc.t("app.tagline")
 	_collection_title.text = Loc.t("menu.collection")
 	UITheme.style_label(_title_label, 86, Color.WHITE, true, 22, UITheme.OUTLINE_DARK)
 	_title_label.add_theme_color_override("font_shadow_color", Color(0.18, 0.23, 0.36, 0.35))
 	_title_label.add_theme_constant_override("shadow_offset_x", 0)
 	_title_label.add_theme_constant_override("shadow_offset_y", 10)
 	_title_label.add_theme_constant_override("shadow_outline_size", 22)
-	UITheme.style_label(_subtitle_label, 26, Color.WHITE, true, 10, UITheme.OUTLINE_DARK)
 
 	_collection_card.add_theme_stylebox_override("panel", UITheme.make_card_style(UITheme.CARD_WHITE, UITheme.CARD_SHADOW, 34, 22, 18, 8))
 	UITheme.style_label(_collection_title, 28, UITheme.TEXT_DARK, true)
@@ -121,6 +150,7 @@ func _style_static() -> void:
 
 func _build_fruit_trio() -> void:
 	for child in _fruit_trio.get_children():
+		_fruit_trio.remove_child(child)
 		child.queue_free()
 	_trio_icons.clear()
 
@@ -151,6 +181,9 @@ func _build_fruit_trio() -> void:
 
 
 func _build_best_row() -> void:
+	for child in _best_row.get_children():
+		_best_row.remove_child(child)
+		child.queue_free()
 	_best_row.add_child(_make_chip("crown", UITheme.GOLD, Loc.t("menu.best", [UITheme.format_number(SaveManager.get_high_score(GameMode.Mode.NORMAL))])))
 	_best_row.add_child(_make_chip("fire", UITheme.PINK, Loc.t("menu.frenzy_best", [UITheme.format_number(SaveManager.get_high_score(GameMode.Mode.FRENZY))])))
 
@@ -172,6 +205,7 @@ func _make_chip(icon_name: String, icon_color: Color, text: String) -> PanelCont
 
 func _build_collection() -> void:
 	for child in _fruit_grid.get_children():
+		_fruit_grid.remove_child(child)
 		child.queue_free()
 	_goal_slot = null
 
@@ -244,6 +278,7 @@ func _make_slot(level: int, discovered: bool, is_goal: bool) -> Control:
 func _on_slot_pressed(slot: Control, level: int, discovered: bool, def: FruitDefinition) -> void:
 	AudioManager.play_click()
 	_selected_slot = slot
+	_selected_level = level
 	if discovered and def != null:
 		_info_label.text = Loc.t("menu.tier_name", [level + 1, Loc.fruit_name(level)])
 		_info_label.add_theme_color_override("font_color", UITheme.TEXT_DARK)
@@ -258,6 +293,25 @@ func _on_slot_pressed(slot: Control, level: int, discovered: bool, def: FruitDef
 	_info_label.scale = Vector2(1.08, 1.08)
 	var tw := create_tween()
 	tw.tween_property(_info_label, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+
+func _update_info_label() -> void:
+	if _selected_level >= 0:
+		var def := FruitRegistry.catalog.get_fruit(_selected_level)
+		var discovered := SaveManager.is_discovered(_selected_level)
+		if discovered and def != null:
+			_info_label.text = Loc.t("menu.tier_name", [_selected_level + 1, Loc.fruit_name(_selected_level)])
+			_info_label.add_theme_color_override("font_color", UITheme.TEXT_DARK)
+		else:
+			var prev := FruitRegistry.catalog.get_fruit(_selected_level - 1)
+			if prev != null and SaveManager.is_discovered(_selected_level - 1):
+				_info_label.text = Loc.t("menu.tier_hint_prev", [_selected_level + 1, Loc.fruit_plural(_selected_level - 1)])
+			else:
+				_info_label.text = Loc.t("menu.tier_hint", [_selected_level + 1])
+			_info_label.add_theme_color_override("font_color", UITheme.TEXT_MUTED)
+		return
+	var next_goal := SaveManager.get_next_undiscovered(FruitRegistry.catalog.get_count())
+	_info_label.text = Loc.t("menu.complete") if next_goal < 0 else Loc.t("menu.tap_hint")
 
 
 # --- Intro animation -------------------------------------------------------------------------
@@ -303,6 +357,16 @@ func _on_power_ups_pressed() -> void:
 	_power_up_modal.open()
 
 
+func _on_skins_pressed() -> void:
+	_skin_modal.open()
+
+
+func _on_skin_changed(_skin_id: String) -> void:
+	_build_fruit_trio()
+	_build_collection()
+	_power_up_modal.refresh_skin()
+
+
 func _on_sound_pressed() -> void:
 	var next_state := not SaveManager.is_sfx_enabled()
 	SaveManager.set_sfx_enabled(next_state)
@@ -312,10 +376,30 @@ func _on_sound_pressed() -> void:
 
 
 func _on_language_pressed() -> void:
-	AudioManager.play_click()
-	Loc.next_language()
-	# Rebuild the menu so every label picks up the new language.
-	SceneManager.goto_scene_direct(SceneManager.MENU_SCENE)
+	_language_modal.open()
+
+
+func _on_language_changed(_code: String) -> void:
+	if _quit_button != null:
+		_quit_button.tooltip_text = Loc.t("menu.quit")
+	if _skins_button != null:
+		_skins_button.tooltip_text = Loc.t("menu.skins")
+		UITheme.set_button_content(_skins_button, "palette", Loc.t("menu.skins"), 24, Color.WHITE, UITheme.BLUE_SHADOW.darkened(0.2), 26.0)
+	if _lang_button != null:
+		_lang_button.tooltip_text = Loc.t("menu.language")
+		UITheme.set_button_texture_content(_lang_button, FlagIcons.get_flag(Loc.language), Loc.language.to_upper(), 24, UITheme.TEXT_DARK, Color(0, 0, 0, 0), Vector2(36.0, 24.0))
+
+	_title_label.text = Loc.t("app.title")
+	_collection_title.text = Loc.t("menu.collection")
+	UITheme.set_button_content(_play_button, "play", Loc.t("menu.play"), 48, Color.WHITE, UITheme.GREEN_SHADOW.darkened(0.2), 40.0)
+	UITheme.set_button_content(_frenzy_button, "fire", Loc.t("menu.frenzy"), 38, Color.WHITE, UITheme.PINK_SHADOW.darkened(0.2), 34.0)
+	UITheme.set_button_content(_power_ups_button, "bolt", Loc.t("menu.powerups"), 26, UITheme.TEXT_DARK, Color(0, 0, 0, 0), 30.0)
+
+	_build_best_row()
+	_update_info_label()
+	_power_up_modal.refresh_language()
+	_skin_modal.refresh_language()
+	_language_modal.refresh_language()
 
 
 func _on_quit_pressed() -> void:
