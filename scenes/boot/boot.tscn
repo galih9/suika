@@ -1,9 +1,21 @@
 [gd_scene format=3 uid="uid://bllln3wn22527"]
 
 [ext_resource type="Script" uid="uid://by6kd2s06r2r6" path="res://scenes/boot/boot.gd" id="1_boot"]
-[ext_resource type="Script" uid="uid://p4xgqrhrkgmj" path="res://scripts/ui/casual_background.gd" id="2_bg"]
+[ext_resource type="Texture2D" uid="uid://cn0rs4mkpcy7v" path="res://assets/godot_logo.png" id="2_logo"]
+[ext_resource type="AudioStream" uid="uid://mmx7kly021sa" path="res://assets/intro.mp3" id="3_intro"]
 
-[node name="BootScene" type="Control" unique_id=468898609]
+[sub_resource type="Gradient" id="Gradient_bg"]
+offsets = PackedFloat32Array(0, 0.5, 1)
+colors = PackedColorArray(1, 0.823529, 0.247059, 1, 1, 0.607843, 0.141176, 1, 1, 0.415686, 0.101961, 1)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_bg"]
+gradient = SubResource("Gradient_bg")
+width = 64
+height = 256
+fill_from = Vector2(0.5, 0)
+fill_to = Vector2(0.5, 1)
+
+[node name="BootScene" type="Control"]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -12,7 +24,7 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_boot")
 
-[node name="Background" type="Control" parent="." unique_id=1087107577]
+[node name="Background" type="TextureRect" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -20,59 +32,30 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-script = ExtResource("2_bg")
-
-[node name="Center" type="CenterContainer" parent="." unique_id=2063795815]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 2
-
-[node name="SplashCard" type="VBoxContainer" parent="Center" unique_id=1718009501]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(560, 0)
-layout_mode = 2
-mouse_filter = 2
-theme_override_constants/separation = 10
-alignment = 1
-
-[node name="BadgeWrap" type="CenterContainer" parent="Center/SplashCard" unique_id=1864620966]
-custom_minimum_size = Vector2(0, 200)
-layout_mode = 2
-mouse_filter = 2
-
-[node name="BadgeIcon" type="TextureRect" parent="Center/SplashCard/BadgeWrap" unique_id=1232338522]
-unique_name_in_owner = true
-texture_filter = 1
-custom_minimum_size = Vector2(168, 168)
-layout_mode = 2
-mouse_filter = 2
+texture = SubResource("GradientTexture2D_bg")
 expand_mode = 1
-stretch_mode = 5
+stretch_mode = 0
 
-[node name="TitleLabel" type="Label" parent="Center/SplashCard" unique_id=1616355950]
+[node name="Center" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="TitleLabel" type="Label" parent="Center"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Fruityzer"
+mouse_filter = 2
+text = "Galih9"
 horizontal_alignment = 1
+vertical_alignment = 1
 
-[node name="SubtitleLabel" type="Label" parent="Center/SplashCard" unique_id=2059645607]
+[node name="GodotLogo" type="TextureRect" parent="."]
 unique_name_in_owner = true
-layout_mode = 2
-text = "A juicy fruit merging game"
-horizontal_alignment = 1
-
-[node name="StatusLabel" type="Label" parent="Center/SplashCard" unique_id=1086808095]
-unique_name_in_owner = true
-layout_mode = 2
-text = "Washing the fruits..."
-horizontal_alignment = 1
-
-[node name="VersionLabel" type="Label" parent="." unique_id=428532851]
-unique_name_in_owner = true
+texture_filter = 2
 layout_mode = 1
 anchors_preset = 7
 anchor_left = 0.5
@@ -80,10 +63,17 @@ anchor_top = 1.0
 anchor_right = 0.5
 anchor_bottom = 1.0
 offset_left = -120.0
-offset_top = -64.0
+offset_top = -132.0
 offset_right = 120.0
-offset_bottom = -24.0
+offset_bottom = -48.0
 grow_horizontal = 2
 grow_vertical = 0
-text = "v1.1"
-horizontal_alignment = 1
+mouse_filter = 2
+texture = ExtResource("2_logo")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="IntroPlayer" type="AudioStreamPlayer" parent="."]
+unique_name_in_owner = true
+stream = ExtResource("3_intro")
+bus = &"Master"

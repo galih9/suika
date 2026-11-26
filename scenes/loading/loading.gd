@@ -3,7 +3,8 @@ extends Control
 ## Loading screen: threaded scene load with a row of hopping fruits, a chunky progress bar with
 ## a fruit riding along it, and a random gameplay tip.
 
-const MIN_DISPLAY_TIME := 0.7
+const FAKE_LOAD_DURATION := 3.0
+const REAL_LOAD_WEIGHT := 0.25
 const HOP_FRUIT_COUNT := 5
 const HOP_SIZE := 72.0
 
@@ -20,6 +21,10 @@ const HOP_SIZE := 72.0
 var _target_path: String = ""
 var _elapsed: float = 0.0
 var _visual_progress: float = 0.0
+var _is_loaded: bool = false
+var _post_load_elapsed: float = 0.0
+var _progress_at_loaded: float = 0.0
+var _loaded_scene: PackedScene = null
 var _is_done: bool = false
 var _hop_icons: Array[TextureRect] = []
 
@@ -85,6 +90,11 @@ func _build_hop_row() -> void:
 		_hop_icons.append(icon)
 
 
+static func compute_post_load_progress(start_progress: float, post_load_elapsed: float) -> float:
+	var fake_t := clampf(post_load_elapsed / FAKE_LOAD_DURATION, 0.0, 1.0)
+	return lerpf(clampf(start_progress, 0.0, 1.0), 1.0, fake_t)
+
+
 func _process(delta: float) -> void:
 	_elapsed += delta
 	_animate_hops()
@@ -92,29 +102,39 @@ func _process(delta: float) -> void:
 	if _is_done:
 		return
 
-	var progress_arr: Array = []
-	var status := ResourceLoader.load_threaded_get_status(_target_path, progress_arr)
-	var real_progress := 0.0
-	if not progress_arr.is_empty():
-		real_progress = float(progress_arr[0])
+	if not _is_loaded:
+		var progress_arr: Array = []
+		var status := ResourceLoader.load_threaded_get_status(_target_path, progress_arr)
+		var real_progress := 0.0
+		if not progress_arr.is_empty():
+			real_progress = float(progress_arr[0])
 
-	if status == ResourceLoader.THREAD_LOAD_LOADED:
-		real_progress = 1.0
-	elif status == ResourceLoader.THREAD_LOAD_FAILED or status == ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
-		_is_done = true
-		SceneManager.change_to_packed(null, _target_path)
-		return
+		if status == ResourceLoader.THREAD_LOAD_FAILED or status == ResourceLoader.THREAD_LOAD_INVALID_RESOURCE:
+			_is_done = true
+			SceneManager.change_to_packed(null, _target_path)
+			return
+		elif status == ResourceLoader.THREAD_LOAD_LOADED:
+			_is_loaded = true
+			_loaded_scene = ResourceLoader.load_threaded_get(_target_path) as PackedScene
+			_progress_at_loaded = _visual_progress
+			_post_load_elapsed = 0.0
+		else:
+			_visual_progress = move_toward(_visual_progress, clampf(real_progress, 0.0, 1.0) * REAL_LOAD_WEIGHT, delta * 2.0)
 
-	var target_visual := minf(real_progress, _elapsed / MIN_DISPLAY_TIME)
-	_visual_progress = move_toward(_visual_progress, clampf(target_visual, 0.0, 1.0), delta * 2.5)
+	if _is_loaded:
+		_post_load_elapsed += delta
+		var target_visual := compute_post_load_progress(_progress_at_loaded, _post_load_elapsed)
+		_visual_progress = move_toward(_visual_progress, target_visual, delta * 2.5)
+
 	_progress_bar.value = _visual_progress * 100.0
 	_percent_label.text = "%d%%" % roundi(_visual_progress * 100.0)
 	_update_rider()
 
-	if status == ResourceLoader.THREAD_LOAD_LOADED and _elapsed >= MIN_DISPLAY_TIME and _visual_progress >= 0.99:
+	if _is_loaded and _post_load_elapsed >= FAKE_LOAD_DURATION and _visual_progress >= 0.99:
+		_progress_bar.value = 100.0
+		_percent_label.text = "100%"
 		_is_done = true
-		var packed := ResourceLoader.load_threaded_get(_target_path) as PackedScene
-		SceneManager.change_to_packed(packed, _target_path)
+		SceneManager.change_to_packed(_loaded_scene, _target_path)
 
 
 func _animate_hops() -> void:

@@ -37,6 +37,7 @@ func _run_all() -> void:
 	await _test_frenzy_charged_property()
 	await _test_skin_system()
 	await _test_localization_and_language_modal()
+	_test_splash_and_loading_config()
 
 	await get_tree().process_frame
 	await get_tree().process_frame
@@ -1186,3 +1187,31 @@ func _test_localization_and_language_modal() -> void:
 	Loc._apply(prev_lang)
 	if SaveManager.get_language() != prev_saved:
 		SaveManager.set_language(prev_saved)
+
+
+func _test_splash_and_loading_config() -> void:
+	var boot_packed := ResourceLoader.load(SceneManager.BOOT_SCENE) as PackedScene
+	_assert(boot_packed != null, "Boot scene must load")
+	if boot_packed != null:
+		var boot := boot_packed.instantiate()
+		_assert(boot != null, "Boot scene must instantiate")
+		if boot != null:
+			_assert(is_equal_approx(boot.SPLASH_DURATION, 3.0), "Boot splash duration must be 3.0s")
+			_assert(boot.get_node("%TitleLabel").text == "Galih9", "Boot title must be Galih9")
+			_assert(boot.get_node("%GodotLogo").texture != null, "Boot GodotLogo must have a texture")
+			_assert(boot.get_node("%IntroPlayer").stream != null, "Boot IntroPlayer must have intro.mp3 stream")
+			_assert(boot.get_node("Background").texture is GradientTexture2D, "Boot Background must use GradientTexture2D")
+			boot.free()
+
+	var loading_packed := ResourceLoader.load(SceneManager.LOADING_SCENE) as PackedScene
+	_assert(loading_packed != null, "Loading scene must load")
+	if loading_packed != null:
+		var loading := loading_packed.instantiate()
+		_assert(loading != null, "Loading scene must instantiate")
+		if loading != null:
+			_assert(is_equal_approx(loading.FAKE_LOAD_DURATION, 3.0), "Loading fake load duration must be 3.0s")
+			_assert(is_equal_approx(loading.compute_post_load_progress(0.0, 0.0), 0.0), "Post-load progress at t=0 must equal start_progress")
+			_assert(is_equal_approx(loading.compute_post_load_progress(0.0, 1.5), 0.5), "Post-load progress at t=1.5s must be 0.5")
+			_assert(loading.compute_post_load_progress(0.25, 2.5) < 1.0, "Post-load progress before 3.0s must be < 1.0")
+			_assert(is_equal_approx(loading.compute_post_load_progress(0.25, 3.0), 1.0), "Post-load progress at t=3.0s must reach 1.0")
+			loading.free()
