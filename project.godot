@@ -10,10 +10,10 @@ config_version=5
 
 [application]
 
-config/name="Fruityzer"
+config/name="Fruityzer - Fruit Merge"
 run/main_scene="res://scenes/boot/boot.tscn"
 config/features=PackedStringArray("4.7", "Mobile")
-config/icon="res://icon.svg"
+config/icon="uid://dwn0ael6u0kjp"
 
 [autoload]
 

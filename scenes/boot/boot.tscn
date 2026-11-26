@@ -1,9 +1,9 @@
 [gd_scene format=3 uid="uid://bllln3wn22527"]
 
 [ext_resource type="Script" uid="uid://by6kd2s06r2r6" path="res://scenes/boot/boot.gd" id="1_boot"]
-[ext_resource type="Script" path="res://scripts/ui/casual_background.gd" id="2_bg"]
+[ext_resource type="Script" uid="uid://p4xgqrhrkgmj" path="res://scripts/ui/casual_background.gd" id="2_bg"]
 
-[node name="BootScene" type="Control"]
+[node name="BootScene" type="Control" unique_id=468898609]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -12,7 +12,7 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_boot")
 
-[node name="Background" type="Control" parent="."]
+[node name="Background" type="Control" parent="." unique_id=1087107577]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -22,7 +22,7 @@ grow_vertical = 2
 mouse_filter = 2
 script = ExtResource("2_bg")
 
-[node name="Center" type="CenterContainer" parent="."]
+[node name="Center" type="CenterContainer" parent="." unique_id=2063795815]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -31,7 +31,7 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="SplashCard" type="VBoxContainer" parent="Center"]
+[node name="SplashCard" type="VBoxContainer" parent="Center" unique_id=1718009501]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(560, 0)
 layout_mode = 2
@@ -39,12 +39,12 @@ mouse_filter = 2
 theme_override_constants/separation = 10
 alignment = 1
 
-[node name="BadgeWrap" type="CenterContainer" parent="Center/SplashCard"]
+[node name="BadgeWrap" type="CenterContainer" parent="Center/SplashCard" unique_id=1864620966]
 custom_minimum_size = Vector2(0, 200)
 layout_mode = 2
 mouse_filter = 2
 
-[node name="BadgeIcon" type="TextureRect" parent="Center/SplashCard/BadgeWrap"]
+[node name="BadgeIcon" type="TextureRect" parent="Center/SplashCard/BadgeWrap" unique_id=1232338522]
 unique_name_in_owner = true
 texture_filter = 1
 custom_minimum_size = Vector2(168, 168)
@@ -53,25 +53,25 @@ mouse_filter = 2
 expand_mode = 1
 stretch_mode = 5
 
-[node name="TitleLabel" type="Label" parent="Center/SplashCard"]
+[node name="TitleLabel" type="Label" parent="Center/SplashCard" unique_id=1616355950]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Fruityzer"
 horizontal_alignment = 1
 
-[node name="SubtitleLabel" type="Label" parent="Center/SplashCard"]
+[node name="SubtitleLabel" type="Label" parent="Center/SplashCard" unique_id=2059645607]
 unique_name_in_owner = true
 layout_mode = 2
 text = "A juicy fruit merging game"
 horizontal_alignment = 1
 
-[node name="StatusLabel" type="Label" parent="Center/SplashCard"]
+[node name="StatusLabel" type="Label" parent="Center/SplashCard" unique_id=1086808095]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Washing the fruits..."
 horizontal_alignment = 1
 
-[node name="VersionLabel" type="Label" parent="."]
+[node name="VersionLabel" type="Label" parent="." unique_id=428532851]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 7
