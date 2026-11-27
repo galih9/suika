@@ -44,7 +44,7 @@ func get_property_icon(prop: FruitProperty.Type) -> Texture2D:
 	return _icons.get(prop, null)
 
 
-## Shared material for Sticky / Concrete / Charged, or null for properties without a tint.
+## Shared material for Sticky / Concrete / Charged / Low Gravity / Shadow, or null for properties without a tint.
 func get_property_material(prop: FruitProperty.Type) -> ShaderMaterial:
 	return _materials.get(prop, null)
 
@@ -184,7 +184,13 @@ func _build_power_up_visuals() -> void:
 	var shader := load(EFFECT_SHADER_PATH) as Shader
 	if shader == null:
 		return
-	for prop in [FruitProperty.Type.STICKY, FruitProperty.Type.CONCRETE, FruitProperty.Type.CHARGED]:
+	for prop in [
+		FruitProperty.Type.STICKY,
+		FruitProperty.Type.CONCRETE,
+		FruitProperty.Type.CHARGED,
+		FruitProperty.Type.LOW_GRAVITY,
+		FruitProperty.Type.SHADOW,
+	]:
 		var mat := ShaderMaterial.new()
 		mat.shader = shader
 		mat.set_shader_parameter("outline_color", FruitProperty.get_outline_color(prop))

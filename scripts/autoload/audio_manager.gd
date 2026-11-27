@@ -40,6 +40,8 @@ var _stream_nuclear_explode: AudioStreamWAV
 var _stream_concrete_crush: AudioStreamWAV
 var _stream_sticky: AudioStreamWAV
 var _stream_charged_bounce: AudioStreamWAV
+var _stream_shadow_split: AudioStreamWAV
+var _stream_wave_clear: AudioStreamWAV
 var _stream_unlock: AudioStreamWAV
 var _stream_pop: AudioStreamWAV
 var _stream_splash_combo: AudioStream
@@ -87,6 +89,8 @@ func _exit_tree() -> void:
 	_stream_concrete_crush = null
 	_stream_sticky = null
 	_stream_charged_bounce = null
+	_stream_shadow_split = null
+	_stream_wave_clear = null
 	_stream_unlock = null
 	_stream_pop = null
 	_stream_splash_combo = null
@@ -113,6 +117,8 @@ func _build_streams() -> void:
 	_stream_concrete_crush = _synth_explosion(140.0, 55.0, 0.16, 0.42, 0.45)
 	_stream_sticky = _synth_tone(260.0, 480.0, 0.09, 0.28)
 	_stream_charged_bounce = _synth_chime([740.0, 1046.5], 0.10, 0.30)
+	_stream_shadow_split = _synth_chime([440.0, 587.33, 880.0], 0.14, 0.30)
+	_stream_wave_clear = _synth_chime([523.25, 659.25, 783.99, 1046.5], 0.24, 0.34)
 	_stream_unlock = _synth_chime([659.25, 783.99, 1046.5, 1318.5], 0.11, 0.34)
 	_stream_pop = _synth_tone(520.0, 900.0, 0.07, 0.26)
 
@@ -226,6 +232,14 @@ func play_sticky() -> void:
 
 func play_charged_bounce() -> void:
 	_play_stream(_stream_charged_bounce, randf_range(0.95, 1.12))
+
+
+func play_shadow_split() -> void:
+	_play_stream(_stream_shadow_split, randf_range(0.95, 1.06))
+
+
+func play_wave_clear() -> void:
+	_play_stream(_stream_wave_clear, 1.0)
 
 
 ## Sparkly arpeggio for discovering a brand-new fruit.

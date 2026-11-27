@@ -140,6 +140,10 @@ func prop_key(prop: int) -> String:
 			return "concrete"
 		FruitProperty.Type.CHARGED:
 			return "charged"
+		FruitProperty.Type.LOW_GRAVITY:
+			return "low_gravity"
+		FruitProperty.Type.SHADOW:
+			return "shadow"
 		_:
 			return ""
 

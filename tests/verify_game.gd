@@ -35,6 +35,10 @@ func _run_all() -> void:
 	await _test_frenzy_nuclear_property()
 	await _test_frenzy_concrete_property()
 	await _test_frenzy_charged_property()
+	await _test_frenzy_waves_and_obstacle_progression()
+	await _test_frenzy_intro_modal()
+	await _test_frenzy_low_gravity_property()
+	await _test_frenzy_shadow_property()
 	await _test_skin_system()
 	await _test_ad_manager_and_banner_layout()
 	await _test_localization_and_language_modal()
@@ -137,7 +141,13 @@ func _test_sprite_assets_and_power_up_visuals() -> void:
 
 	_assert(textures.get_property_icon(FruitProperty.Type.BOMB) != null, "Bomb must use its icon asset")
 	_assert(textures.get_property_icon(FruitProperty.Type.NUCLEAR) != null, "Nuclear must use its icon asset")
-	for prop in [FruitProperty.Type.STICKY, FruitProperty.Type.CONCRETE, FruitProperty.Type.CHARGED]:
+	for prop in [
+		FruitProperty.Type.STICKY,
+		FruitProperty.Type.CONCRETE,
+		FruitProperty.Type.CHARGED,
+		FruitProperty.Type.LOW_GRAVITY,
+		FruitProperty.Type.SHADOW,
+	]:
 		_assert(textures.get_property_icon(prop) == null, "%s should not use an icon" % FruitProperty.get_display_name(prop))
 		_assert(textures.get_property_material(prop) != null, "%s must use the tint/outline material" % FruitProperty.get_display_name(prop))
 	_assert(textures.get_property_material(FruitProperty.Type.NONE) == null, "Plain fruits must not get a material")
@@ -757,7 +767,7 @@ func _test_modes_and_save_manager() -> void:
 			seen_types[p] = true
 	_assert(none_count > 0 and special_count > 0, "Frenzy property roll must produce both NONE and special properties")
 	_assert(special_count >= 60 and special_count <= 140, "Expected ~20%% (60..140/500) special properties, got %d" % special_count)
-	_assert(seen_types.size() == FruitProperty.FRENZY_TYPES.size(), "All 5 Frenzy property types should appear in randomized rolls")
+	_assert(seen_types.size() == FruitProperty.FRENZY_TYPES.size(), "All %d Frenzy property types should appear in randomized rolls" % FruitProperty.FRENZY_TYPES.size())
 
 	# Verify GameBoard in Frenzy mode drops both NONE and special-property fruits
 	board._rng.seed = 2026
@@ -996,6 +1006,234 @@ func _test_frenzy_charged_property() -> void:
 		_assert(merged.fruit_property == FruitProperty.Type.NONE, "Merged fruit must clear CHARGED property")
 		_assert(merged.physics_material_override == FruitRegistry.catalog.get_physics_material(), "Merged fruit must restore normal physics material")
 	_assert(board.score == FruitRegistry.catalog.get_fruit(1).score, "Merging charged fruit must award merge score")
+
+	board.queue_free()
+
+
+func _test_frenzy_waves_and_obstacle_progression() -> void:
+	# 1. Obstacle unlock progression & escalating spawn probability
+	var w1 := FruitProperty.get_available_types_for_wave(1)
+	_assert(not w1.has(FruitProperty.Type.BOMB) and not w1.has(FruitProperty.Type.CONCRETE) and not w1.has(FruitProperty.Type.NUCLEAR), "Wave 1 must not spawn Bomb, Concrete, or Nuclear obstacles")
+	_assert(w1.has(FruitProperty.Type.STICKY) and w1.has(FruitProperty.Type.CHARGED) and w1.has(FruitProperty.Type.LOW_GRAVITY) and w1.has(FruitProperty.Type.SHADOW), "Wave 1 must include Sticky, Charged, Low Gravity, and Shadow")
+
+	var w2 := FruitProperty.get_available_types_for_wave(2)
+	_assert(w2.has(FruitProperty.Type.BOMB) and not w2.has(FruitProperty.Type.CONCRETE) and not w2.has(FruitProperty.Type.NUCLEAR), "Wave 2 must unlock Bomb only")
+	_assert(FruitProperty.get_obstacle_unlocked_at_wave(2) == FruitProperty.Type.BOMB, "Wave 2 unlock helper must return BOMB")
+
+	var w4 := FruitProperty.get_available_types_for_wave(4)
+	_assert(w4.has(FruitProperty.Type.BOMB) and w4.has(FruitProperty.Type.CONCRETE) and not w4.has(FruitProperty.Type.NUCLEAR), "Wave 4 must unlock Concrete")
+	_assert(FruitProperty.get_obstacle_unlocked_at_wave(4) == FruitProperty.Type.CONCRETE, "Wave 4 unlock helper must return CONCRETE")
+
+	var w6 := FruitProperty.get_available_types_for_wave(6)
+	_assert(w6.size() == FruitProperty.FRENZY_TYPES.size() and w6.has(FruitProperty.Type.NUCLEAR), "Wave 6 must unlock Nuclear alongside all properties")
+	_assert(FruitProperty.get_obstacle_unlocked_at_wave(6) == FruitProperty.Type.NUCLEAR, "Wave 6 unlock helper must return NUCLEAR")
+
+	var c1 := FruitProperty.get_spawn_chance_for_wave(1)
+	var c2 := FruitProperty.get_spawn_chance_for_wave(2)
+	var c4 := FruitProperty.get_spawn_chance_for_wave(4)
+	var c6 := FruitProperty.get_spawn_chance_for_wave(6)
+	var c7 := FruitProperty.get_spawn_chance_for_wave(7)
+	var c9 := FruitProperty.get_spawn_chance_for_wave(9)
+	var c20 := FruitProperty.get_spawn_chance_for_wave(20)
+	_assert(c1 < c2 and c2 < c4 and c4 < c6 and c6 < c7 and c7 < c9, "Property spawn chance must strictly increase across waves")
+	_assert(c20 <= FruitProperty.FRENZY_MAX_SPAWN_CHANCE + 0.0001, "Property spawn chance must cap at FRENZY_MAX_SPAWN_CHANCE")
+
+	# 2. Target score progression (+300 each wave)
+	_assert(GameBoard.get_frenzy_wave_target(1) == 300, "Wave 1 target must be 300")
+	_assert(GameBoard.get_frenzy_wave_target(2) == 600, "Wave 2 target must be 600")
+	_assert(GameBoard.get_frenzy_wave_target(3) == 900, "Wave 3 target must be 900")
+	_assert(GameBoard.get_frenzy_wave_target(6) == 1800, "Wave 6 target must be 1800")
+
+	# 3. Board wave state, advance on sufficient score, and game over on timeout
+	var board := GameBoard.new()
+	add_child(board)
+	await get_tree().process_frame
+	board.set_game_mode(GameMode.Mode.FRENZY)
+
+	_assert(board.frenzy_wave == 1, "Frenzy must start at Wave 1")
+	_assert(is_equal_approx(board.frenzy_wave_timer, GameBoard.FRENZY_WAVE_DURATION), "Wave timer must start at 20.0s")
+	_assert(board.frenzy_wave_score == 0 and board.frenzy_wave_target == 300, "Wave 1 must start at 0 / 300")
+
+	var advanced_events: Array[Array] = []
+	board.frenzy_wave_advanced.connect(func(nw: int, nt: int, uo: int) -> void:
+		advanced_events.append([nw, nt, uo])
+	)
+
+	board.frenzy_wave_score = 300
+	board.frenzy_wave_timer = 0.01
+	board._tick_frenzy_wave(0.05)
+	_assert(not board.is_game_over, "Meeting wave score before timer expiry must not end game")
+	_assert(board.frenzy_wave == 2, "Meeting Wave 1 score must advance to Wave 2")
+	_assert(board.frenzy_wave_score == 0 and board.frenzy_wave_target == 600, "Wave 2 must reset wave_score to 0 and set target to 600")
+	_assert(is_equal_approx(board.frenzy_wave_timer, GameBoard.FRENZY_WAVE_DURATION), "Advancing wave must reset timer to 20.0s")
+	_assert(advanced_events.size() == 1 and advanced_events[0] == [2, 600, FruitProperty.Type.BOMB], "Advancing to Wave 2 must emit BOMB obstacle unlock")
+
+	# Failing wave 2 (score < 600) must end the run with WAVE_TIMEOUT
+	var game_over_count := [0]
+	board.game_over.connect(func(_s: int, _nb: bool) -> void: game_over_count[0] += 1)
+	board.frenzy_wave_score = 599
+	board.frenzy_wave_timer = 0.01
+	board._tick_frenzy_wave(0.05)
+	_assert(board.is_game_over, "Expiring wave timer below target score must trigger game over")
+	_assert(board.game_over_reason == GameBoard.GameOverReason.WAVE_TIMEOUT, "Game over reason must be WAVE_TIMEOUT")
+	_assert(game_over_count[0] == 1, "game_over signal must emit once on wave timeout")
+
+	# Normal mode must never time out
+	board.set_game_mode(GameMode.Mode.NORMAL)
+	board.frenzy_wave_timer = 0.01
+	for _i in range(5):
+		await get_tree().physics_frame
+	_assert(not board.is_game_over, "Normal mode must never trigger Frenzy wave timeout")
+
+	board.queue_free()
+
+	# 4. Game HUD WaveBar visibility & PowerUpModal completeness
+	var prev_selected := SceneManager.selected_mode
+	SceneManager.selected_mode = GameMode.Mode.FRENZY
+	var frenzy_scene := (ResourceLoader.load(SceneManager.GAME_SCENE) as PackedScene).instantiate()
+	add_child(frenzy_scene)
+	await get_tree().process_frame
+	_assert(frenzy_scene._wave_bar.visible, "WaveBar must be visible in Frenzy mode")
+
+	SceneManager.selected_mode = GameMode.Mode.NORMAL
+	var normal_scene := (ResourceLoader.load(SceneManager.GAME_SCENE) as PackedScene).instantiate()
+	add_child(normal_scene)
+	await get_tree().process_frame
+	_assert(not normal_scene._wave_bar.visible, "WaveBar must be hidden in Normal mode")
+	_assert(PowerUpModal.ENTRIES.size() == 7, "PowerUpModal must list all 7 Frenzy properties")
+
+	frenzy_scene.queue_free()
+	normal_scene.queue_free()
+	SceneManager.selected_mode = prev_selected
+
+
+func _test_frenzy_intro_modal() -> void:
+	var prev_hidden := SaveManager.is_frenzy_intro_hidden()
+	var prev_selected := SceneManager.selected_mode
+
+	SaveManager.set_frenzy_intro_hidden(false)
+
+	# 1. Normal mode must NOT show the Frenzy intro popup
+	SceneManager.selected_mode = GameMode.Mode.NORMAL
+	var normal_scene := (ResourceLoader.load(SceneManager.GAME_SCENE) as PackedScene).instantiate()
+	add_child(normal_scene)
+	await get_tree().process_frame
+	_assert(not normal_scene._frenzy_intro_modal.is_open(), "Frenzy intro modal must stay closed in Normal mode")
+	_assert(not get_tree().paused, "Normal mode must not start paused")
+	normal_scene.queue_free()
+	await get_tree().process_frame
+
+	# 2. Frenzy mode MUST show the popup, pause the wave timer, and unpause on Start
+	SceneManager.selected_mode = GameMode.Mode.FRENZY
+	var frenzy_scene := (ResourceLoader.load(SceneManager.GAME_SCENE) as PackedScene).instantiate()
+	add_child(frenzy_scene)
+	await get_tree().process_frame
+	var modal: FrenzyIntroModal = frenzy_scene._frenzy_intro_modal
+	_assert(modal.is_open() and modal.visible, "Frenzy intro modal must open before Frenzy starts")
+	_assert(get_tree().paused, "Game tree must pause while Frenzy intro modal is open")
+	_assert(not modal.is_dont_show_checked(), "Don't show again checkbox must start unchecked")
+
+	for _i in range(5):
+		await get_tree().physics_frame
+	_assert(is_equal_approx(frenzy_scene._board.frenzy_wave_timer, GameBoard.FRENZY_WAVE_DURATION), "Wave timer must stay paused at 20.0s while intro modal is open")
+
+	# Dismiss without checking "Don't show again" -> unpauses and keeps preference false
+	modal._start_button.pressed.emit()
+	await modal.closed
+	_assert(not modal.is_open() and not modal.visible, "Frenzy intro modal must close after Start pressed")
+	_assert(not get_tree().paused, "Game tree must unpause after Frenzy intro modal closes")
+	_assert(not SaveManager.is_frenzy_intro_hidden(), "Unchecked checkbox must keep frenzy intro enabled")
+
+	# Restarting opens the intro again; checking the checkbox and pressing Start persists opt-out
+	frenzy_scene._on_restart_pressed()
+	await get_tree().process_frame
+	_assert(modal.is_open() and get_tree().paused, "Restarting Frenzy while not hidden must re-open intro and pause")
+	modal.set_dont_show_checked(true)
+	_assert(modal.is_dont_show_checked(), "Checkbox helper must reflect checked state")
+	modal._start_button.pressed.emit()
+	await modal.closed
+	_assert(not get_tree().paused, "Closing intro modal after checking opt-out must unpause")
+	_assert(SaveManager.is_frenzy_intro_hidden(), "Checking 'Don't show this again' must persist in SaveManager")
+
+	frenzy_scene.queue_free()
+	await get_tree().process_frame
+
+	# 3. Subsequent Frenzy session skips the popup when hidden
+	var frenzy_skip := (ResourceLoader.load(SceneManager.GAME_SCENE) as PackedScene).instantiate()
+	add_child(frenzy_skip)
+	await get_tree().process_frame
+	_assert(not frenzy_skip._frenzy_intro_modal.is_open(), "Frenzy intro modal must not open when 'Don't show this again' is saved")
+	_assert(not get_tree().paused, "Frenzy must start unpaused when intro is hidden")
+	frenzy_skip.queue_free()
+	await get_tree().process_frame
+
+	SaveManager.set_frenzy_intro_hidden(prev_hidden)
+	SceneManager.selected_mode = prev_selected
+
+
+func _test_frenzy_low_gravity_property() -> void:
+	var board := GameBoard.new()
+	add_child(board)
+	await get_tree().process_frame
+	board.set_game_mode(GameMode.Mode.FRENZY)
+
+	var normal_fruit := _spawn_test_fruit(board, 1, Vector2(-80.0, GameBoard.DROP_Y), FruitProperty.Type.NONE, Vector2(0.0, 40.0))
+	var low_grav := _spawn_test_fruit(board, 1, Vector2(80.0, GameBoard.DROP_Y), FruitProperty.Type.LOW_GRAVITY, Vector2(0.0, GameBoard.LOW_GRAVITY_DROP_VY))
+	_assert(is_equal_approx(low_grav.gravity_scale, Fruit.LOW_GRAVITY_SCALE), "Low Gravity fruit must activate with reduced gravity_scale")
+
+	for _i in range(30):
+		await get_tree().physics_frame
+
+	_assert(low_grav.position.y > GameBoard.DROP_Y + 5.0, "Low Gravity fruit must still fall downward")
+	_assert(low_grav.position.y < normal_fruit.position.y - 80.0, "Low Gravity fruit must fall much slower than normal fruit (low_grav=%f, normal=%f)" % [low_grav.position.y, normal_fruit.position.y])
+
+	# Merging clears LOW_GRAVITY and restores normal gravity_scale
+	var partner := _spawn_test_fruit(board, 1, low_grav.position + Vector2(low_grav.radius * 1.8, 0.0), FruitProperty.Type.NONE)
+	board._on_fruit_merge_contact(low_grav, partner)
+	await get_tree().process_frame
+	var merged_found: Fruit = null
+	for f in board.fruit_pool.active_fruits:
+		if f.level == 2:
+			merged_found = f
+			break
+	_assert(merged_found != null and merged_found.fruit_property == FruitProperty.Type.NONE, "Merged Low Gravity fruit must become NONE property")
+	if merged_found != null:
+		_assert(is_equal_approx(merged_found.gravity_scale, 1.0), "Merged fruit must restore gravity_scale == 1.0")
+
+	board.queue_free()
+
+
+func _test_frenzy_shadow_property() -> void:
+	var board := GameBoard.new()
+	add_child(board)
+	await get_tree().process_frame
+	board.set_game_mode(GameMode.Mode.FRENZY)
+
+	# Level 2 (Strawberry) Shadow + Level 2 Normal -> Level 3 (Grape) + 2x Level 2 (Strawberry) shot to each side
+	var s1 := _spawn_test_fruit(board, 2, Vector2(-20.0, 680.0), FruitProperty.Type.SHADOW)
+	var s2 := _spawn_test_fruit(board, 2, Vector2(20.0, 680.0), FruitProperty.Type.NONE)
+	board._on_fruit_merge_contact(s1, s2)
+	await get_tree().process_frame
+
+	_assert(board.fruit_pool.active_fruits.size() == 3, "Shadow merge must leave 1 upgraded fruit + 2 side-shot fruits, got %d" % board.fruit_pool.active_fruits.size())
+	var level3_count := 0
+	var level2_shots: Array[Fruit] = []
+	for f in board.fruit_pool.active_fruits:
+		_assert(f.fruit_property == FruitProperty.Type.NONE, "Upgraded and shadow-shot fruits must have NONE property")
+		if f.level == 3:
+			level3_count += 1
+		elif f.level == 2:
+			level2_shots.append(f)
+
+	_assert(level3_count == 1, "Shadow merge of level 2 must produce one level 3 fruit")
+	_assert(level2_shots.size() == 2, "Shadow merge of level 2 must shoot two level 2 fruits")
+	if level2_shots.size() == 2:
+		var vxs := [level2_shots[0].linear_velocity.x, level2_shots[1].linear_velocity.x]
+		vxs.sort()
+		_assert(vxs[0] < -100.0 and vxs[1] > 100.0, "Shadow-shot fruits must launch toward opposite left/right sides, got %s" % str(vxs))
+
+	var expected_score := FruitRegistry.catalog.get_fruit(3).score
+	_assert(board.score == expected_score, "Shadow merge must award level 3 merge score (%d), got %d" % [expected_score, board.score])
 
 	board.queue_free()
 

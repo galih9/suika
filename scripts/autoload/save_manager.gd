@@ -21,6 +21,7 @@ const KEY_SFX_ENABLED := "sfx_enabled"
 const SECTION_SETTINGS := "settings"
 const KEY_LANGUAGE := "language"
 const KEY_SKIN := "skin"
+const KEY_HIDE_FRENZY_INTRO := "hide_frenzy_intro"
 const SECTION_COLLECTION := "collection"
 const KEY_DISCOVERED := "discovered_mask"
 const KEY_SEEN_POWERUPS := "seen_powerups_mask"
@@ -37,6 +38,7 @@ var _games_played: int = 0
 var _language: String = ""
 var _skin_id: String = SkinCatalog.DEFAULT_SKIN_ID
 var _unlocked_skins: Array[String] = [SkinCatalog.DEFAULT_SKIN_ID]
+var _hide_frenzy_intro: bool = false
 
 
 func _ready() -> void:
@@ -57,6 +59,7 @@ func _load() -> void:
 		_seen_powerups_mask = int(_config.get_value(SECTION_COLLECTION, KEY_SEEN_POWERUPS, 0))
 		_language = String(_config.get_value(SECTION_SETTINGS, KEY_LANGUAGE, ""))
 		_skin_id = String(_config.get_value(SECTION_SETTINGS, KEY_SKIN, SkinCatalog.DEFAULT_SKIN_ID))
+		_hide_frenzy_intro = bool(_config.get_value(SECTION_SETTINGS, KEY_HIDE_FRENZY_INTRO, false))
 		_load_unlocked_skins(_config.get_value(SECTION_COLLECTION, KEY_UNLOCKED_SKINS, PackedStringArray([SkinCatalog.DEFAULT_SKIN_ID])))
 	else:
 		_high_score = 0
@@ -68,6 +71,7 @@ func _load() -> void:
 		_seen_powerups_mask = 0
 		_skin_id = SkinCatalog.DEFAULT_SKIN_ID
 		_unlocked_skins = [SkinCatalog.DEFAULT_SKIN_ID]
+		_hide_frenzy_intro = false
 	# The first fruit (Blueberry) is always known.
 	_discovered_mask |= 1
 
@@ -92,6 +96,7 @@ func _save() -> void:
 	_config.set_value(SECTION_COLLECTION, KEY_UNLOCKED_SKINS, PackedStringArray(_unlocked_skins))
 	_config.set_value(SECTION_SETTINGS, KEY_LANGUAGE, _language)
 	_config.set_value(SECTION_SETTINGS, KEY_SKIN, _skin_id)
+	_config.set_value(SECTION_SETTINGS, KEY_HIDE_FRENZY_INTRO, _hide_frenzy_intro)
 	_config.save(SAVE_PATH)
 
 
@@ -131,6 +136,17 @@ func set_skin_id(skin_id: String) -> void:
 	if _skin_id == skin_id:
 		return
 	_skin_id = skin_id
+	_save()
+
+
+func is_frenzy_intro_hidden() -> bool:
+	return _hide_frenzy_intro
+
+
+func set_frenzy_intro_hidden(hidden: bool) -> void:
+	if _hide_frenzy_intro == hidden:
+		return
+	_hide_frenzy_intro = hidden
 	_save()
 
 

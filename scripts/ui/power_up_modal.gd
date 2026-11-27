@@ -12,6 +12,8 @@ const ENTRIES: Array[FruitProperty.Type] = [
 	FruitProperty.Type.NUCLEAR,
 	FruitProperty.Type.CONCRETE,
 	FruitProperty.Type.CHARGED,
+	FruitProperty.Type.LOW_GRAVITY,
+	FruitProperty.Type.SHADOW,
 ]
 
 ## Fruit used to preview the tint-style power-ups (Sticky / Concrete / Charged).
@@ -84,9 +86,21 @@ func _build() -> void:
 	_subtitle_label.custom_minimum_size = Vector2(560, 0)
 	col.add_child(_subtitle_label)
 
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	scroll.custom_minimum_size = Vector2(0, 560)
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col.add_child(scroll)
+
+	var list := VBoxContainer.new()
+	list.add_theme_constant_override("separation", 10)
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(list)
+
 	_row_entries.clear()
 	for prop in ENTRIES:
-		col.add_child(_make_row(prop, Loc.t("pu.%s.desc" % Loc.prop_key(prop))))
+		list.add_child(_make_row(prop, Loc.t("pu.%s.desc" % Loc.prop_key(prop))))
 
 	_ok_button = Button.new()
 	_ok_button.text = Loc.t("pu.ok")

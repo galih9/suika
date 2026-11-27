@@ -106,7 +106,7 @@ func scan_active_contacts(active_fruits: Array[Fruit]) -> bool:
 func process_queue(pool: FruitPool, jar: JarContainer, effects: MergeEffects) -> Dictionary:
 	_flush_scheduled = false
 	if _pending_merges.is_empty():
-		return {"gained_score": 0, "unlocked_levels": [], "nuclear_blasts": [], "merges": []}
+		return {"gained_score": 0, "unlocked_levels": [], "nuclear_blasts": [], "shadow_splits": [], "merges": []}
 
 	var batch := _pending_merges.duplicate()
 	_pending_merges.clear()
@@ -116,6 +116,7 @@ func process_queue(pool: FruitPool, jar: JarContainer, effects: MergeEffects) ->
 	var gained_total := 0
 	var unlocked_levels: Array[int] = []
 	var nuclear_blasts: Array[Dictionary] = []
+	var shadow_splits: Array[Dictionary] = []
 	# One entry per merge for UI/FX: {"level", "position", "points", "is_max_bonus"}.
 	var merges: Array[Dictionary] = []
 
@@ -134,6 +135,10 @@ func process_queue(pool: FruitPool, jar: JarContainer, effects: MergeEffects) ->
 		var trigger_nuclear := (
 			a.fruit_property == FruitProperty.Type.NUCLEAR
 			or b.fruit_property == FruitProperty.Type.NUCLEAR
+		)
+		var trigger_shadow := (
+			a.fruit_property == FruitProperty.Type.SHADOW
+			or b.fruit_property == FruitProperty.Type.SHADOW
 		)
 
 		pool.release(a)
@@ -212,6 +217,13 @@ func process_queue(pool: FruitPool, jar: JarContainer, effects: MergeEffects) ->
 				"base_radius": blast_base_radius,
 				"exempt": spawned_fruit,
 			})
+		if trigger_shadow:
+			shadow_splits.append({
+				"level": merged_level,
+				"center": blast_center,
+				"center_radius": spawned_fruit.radius if spawned_fruit != null else 0.0,
+				"parent_was_below": parent_was_below,
+			})
 
 		_wake_nearby_fruits(pool.active_fruits, midpoint, wake_radius)
 
@@ -219,6 +231,7 @@ func process_queue(pool: FruitPool, jar: JarContainer, effects: MergeEffects) ->
 		"gained_score": gained_total,
 		"unlocked_levels": unlocked_levels,
 		"nuclear_blasts": nuclear_blasts,
+		"shadow_splits": shadow_splits,
 		"merges": merges,
 	}
 

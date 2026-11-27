@@ -26,6 +26,13 @@ const BOARD_HEIGHT := 860.0
 @onready var _next_icon: TextureRect = %NextIcon
 @onready var _next_prop_tag: PanelContainer = %NextPropTag
 @onready var _next_prop_label: Label = %NextPropLabel
+@onready var _wave_bar: PanelContainer = %WaveBar
+@onready var _wave_badge: PanelContainer = %WaveBadge
+@onready var _wave_label: Label = %WaveLabel
+@onready var _wave_progress_bar: ProgressBar = %WaveProgressBar
+@onready var _wave_goal_label: Label = %WaveGoalLabel
+@onready var _wave_timer_pill: PanelContainer = %WaveTimerPill
+@onready var _wave_timer_label: Label = %WaveTimerLabel
 
 @onready var _danger_banner: PanelContainer = %DangerBanner
 @onready var _danger_label: Label = %DangerLabel
@@ -62,11 +69,13 @@ const BOARD_HEIGHT := 860.0
 var _top_hud_bottom: float = 170.0
 var _bottom_bar_height: float = 124.0
 var _power_up_modal: PowerUpModal
+var _frenzy_intro_modal: FrenzyIntroModal
 var _skin_modal: SkinModal
 var _language_modal: LanguageModal
 var _edge_splatter: EdgeSplatter
 var _power_info_button: Button
 var _modal_paused_game: bool = false
+var _intro_paused_game: bool = false
 
 # Run state
 var _displayed_score: float = 0.0
@@ -87,6 +96,12 @@ var _clock: float = 0.0
 var _shake: float = 0.0
 var _next_prop_seen_this_run: Dictionary = {}
 var _max_drop_level: int = 4
+var _wave_fill_normal: StyleBoxFlat
+var _wave_fill_cleared: StyleBoxFlat
+var _wave_timer_normal: StyleBoxFlat
+var _wave_timer_cleared: StyleBoxFlat
+var _wave_timer_urgent: StyleBoxFlat
+var _wave_timer_state: int = -1
 
 
 func _ready() -> void:
@@ -103,6 +118,8 @@ func _ready() -> void:
 	_board.explosion_triggered.connect(_on_board_explosion)
 	_board.spawn_phase_changed.connect(_on_board_spawn_phase_changed)
 	_board.spawn_floor_changed.connect(_on_board_spawn_floor_changed)
+	_board.frenzy_wave_updated.connect(_on_board_frenzy_wave_updated)
+	_board.frenzy_wave_advanced.connect(_on_board_frenzy_wave_advanced)
 
 	_pause_button.pressed.connect(_on_pause_pressed)
 	_resume_button.pressed.connect(_on_resume_pressed)
@@ -124,6 +141,10 @@ func _ready() -> void:
 	add_child(_power_up_modal)
 	_power_up_modal.closed.connect(_on_power_up_modal_closed)
 
+	_frenzy_intro_modal = FrenzyIntroModal.new()
+	add_child(_frenzy_intro_modal)
+	_frenzy_intro_modal.closed.connect(_on_frenzy_intro_closed)
+
 	_skin_modal = SkinModal.new()
 	add_child(_skin_modal)
 
@@ -144,6 +165,7 @@ func _ready() -> void:
 	# In Frenzy the pink power-up button doubles as the mode indicator.
 	_mode_badge.visible = false
 	_pause_power_ups_button.visible = is_frenzy
+	_wave_bar.visible = is_frenzy
 	if is_frenzy:
 		_build_power_info_button()
 
@@ -152,6 +174,9 @@ func _ready() -> void:
 	# Sync initial HUD values from board.
 	_on_board_score_changed(_board.score, _board.best_score, 0)
 	_on_board_next_fruit_changed(_board.next_level, _board.next_property)
+	if is_frenzy:
+		_on_board_frenzy_wave_updated(_board.frenzy_wave, _board.frenzy_wave_score, _board.frenzy_wave_target, _board.frenzy_wave_timer)
+	_maybe_open_frenzy_intro()
 	AdManager.show_banner()
 	await get_tree().process_frame
 	_layout_board()
@@ -164,9 +189,13 @@ func _exit_tree() -> void:
 		FruitRegistry.skin_changed.disconnect(_on_skin_changed)
 	if AdManager.banner_height_changed.is_connected(_on_banner_height_changed):
 		AdManager.banner_height_changed.disconnect(_on_banner_height_changed)
-	# Never leave a screen-shake offset behind for the next scene.
+	# Never leave a screen-shake offset or paused tree behind for the next scene.
 	if is_inside_tree():
 		get_viewport().canvas_transform = Transform2D.IDENTITY
+		if _intro_paused_game or _modal_paused_game:
+			_intro_paused_game = false
+			_modal_paused_game = false
+			get_tree().paused = false
 
 
 func _process(delta: float) -> void:
@@ -191,6 +220,13 @@ func _process(delta: float) -> void:
 		var pulse := 1.0 + 0.05 * sin(_clock * 14.0)
 		_danger_banner.pivot_offset = _danger_banner.size * 0.5
 		_danger_banner.scale = Vector2(pulse, pulse)
+
+	if _wave_bar.visible and _wave_timer_state == 2:
+		var t_pulse := 1.0 + 0.06 * sin(_clock * 12.0)
+		_wave_timer_pill.pivot_offset = _wave_timer_pill.size * 0.5
+		_wave_timer_pill.scale = Vector2(t_pulse, t_pulse)
+	elif _wave_timer_pill.scale != Vector2.ONE:
+		_wave_timer_pill.scale = Vector2.ONE
 
 
 # --- Styling ---------------------------------------------------------------------------------
@@ -218,6 +254,23 @@ func _apply_styles() -> void:
 	var bubble := UITheme.make_card_style(UITheme.CARD_WHITE, UITheme.CARD_SHADOW, 40, 8, 6, 7)
 	_next_bubble.add_theme_stylebox_override("panel", bubble)
 	UITheme.style_label(_next_title, 18, UITheme.TEXT_MUTED, true)
+
+	_wave_bar.add_theme_stylebox_override("panel", UITheme.make_card_style(UITheme.CARD_WHITE, UITheme.CARD_SHADOW, 22, 12, 8, 5))
+	_wave_badge.add_theme_stylebox_override("panel", UITheme.make_panel_style(UITheme.PINK, UITheme.PINK_SHADOW, 14, 0, 12, 4))
+	UITheme.style_label(_wave_label, 20, Color.WHITE, true, 5, UITheme.PINK_SHADOW)
+
+	var wave_bg := UITheme.make_panel_style(Color("#E6F2F8"), Color("#C9DFEC"), 14, 2, 0, 0)
+	_wave_fill_normal = UITheme.make_panel_style(UITheme.ORANGE, UITheme.ORANGE_SHADOW, 12, 0, 0, 0)
+	_wave_fill_cleared = UITheme.make_panel_style(UITheme.GREEN, UITheme.GREEN_SHADOW, 12, 0, 0, 0)
+	_wave_progress_bar.add_theme_stylebox_override("background", wave_bg)
+	_wave_progress_bar.add_theme_stylebox_override("fill", _wave_fill_normal)
+	UITheme.style_label(_wave_goal_label, 18, Color.WHITE, true, 6, UITheme.OUTLINE_DARK)
+
+	_wave_timer_normal = UITheme.make_panel_style(UITheme.BLUE, UITheme.BLUE_SHADOW, 14, 0, 12, 4)
+	_wave_timer_cleared = UITheme.make_panel_style(UITheme.GREEN, UITheme.GREEN_SHADOW, 14, 0, 12, 4)
+	_wave_timer_urgent = UITheme.make_panel_style(UITheme.DANGER_RED, UITheme.DANGER_SHADOW, 14, 0, 12, 4)
+	_wave_timer_pill.add_theme_stylebox_override("panel", _wave_timer_normal)
+	UITheme.style_label(_wave_timer_label, 20, Color.WHITE, true, 5, UITheme.OUTLINE_DARK)
 
 	_danger_banner.add_theme_stylebox_override("panel", UITheme.make_card_style(UITheme.DANGER_RED, UITheme.DANGER_SHADOW, 24, 20, 6, 5))
 	UITheme.style_label(_danger_label, 24, Color.WHITE, true, 6, UITheme.DANGER_SHADOW)
@@ -483,6 +536,62 @@ func _on_board_explosion(_local_pos: Vector2, _blast_radius: float, is_nuclear: 
 	_add_shake(16.0 if is_nuclear else 9.0)
 
 
+func _on_board_frenzy_wave_updated(wave: int, wave_score: int, wave_target: int, time_left: float) -> void:
+	if not _wave_bar.visible:
+		return
+	_wave_label.text = Loc.t("frenzy.wave", [wave])
+	_wave_goal_label.text = Loc.t("frenzy.goal", [UITheme.format_number(wave_score), UITheme.format_number(wave_target)])
+	_wave_progress_bar.max_value = float(maxi(wave_target, 1))
+	_wave_progress_bar.value = float(mini(wave_score, wave_target))
+	_wave_timer_label.text = Loc.t("frenzy.timer", [maxf(time_left, 0.0)])
+
+	var cleared := wave_score >= wave_target
+	var next_state := 1 if cleared else (2 if time_left <= 5.0 else 0)
+	if next_state != _wave_timer_state:
+		_wave_timer_state = next_state
+		_wave_progress_bar.add_theme_stylebox_override("fill", _wave_fill_cleared if cleared else _wave_fill_normal)
+		match next_state:
+			1:
+				_wave_timer_pill.add_theme_stylebox_override("panel", _wave_timer_cleared)
+			2:
+				_wave_timer_pill.add_theme_stylebox_override("panel", _wave_timer_urgent)
+			_:
+				_wave_timer_pill.add_theme_stylebox_override("panel", _wave_timer_normal)
+
+
+func _on_board_frenzy_wave_advanced(new_wave: int, new_target: int, unlocked_obstacle: int) -> void:
+	if _wave_bar.visible:
+		_punch(_wave_badge, 1.25)
+	var target_str := UITheme.format_number(new_target)
+	if unlocked_obstacle != FruitProperty.Type.NONE:
+		var prop := unlocked_obstacle as FruitProperty.Type
+		var icon := FruitRegistry.textures.get_property_icon(prop)
+		if icon == null:
+			icon = PixelIcons.get_icon("bolt")
+		_toasts.show_toast(
+			Loc.t("toast.wave", [new_wave]),
+			Loc.t("toast.wave_obstacle", [FruitProperty.get_display_name(prop), target_str]),
+			icon,
+			FruitProperty.get_color(prop),
+			ToastStack.HOLD_TIME,
+			true
+		)
+	elif new_wave > FruitProperty.WAVE_UNLOCK_NUCLEAR:
+		_toasts.show_toast(
+			Loc.t("toast.wave", [new_wave]),
+			Loc.t("toast.wave_chaos", [target_str]),
+			PixelIcons.get_icon("fire"),
+			UITheme.PINK
+		)
+	else:
+		_toasts.show_toast(
+			Loc.t("toast.wave", [new_wave]),
+			Loc.t("toast.wave_sub", [target_str]),
+			PixelIcons.get_icon("star"),
+			UITheme.GREEN
+		)
+
+
 func _on_board_danger_changed(is_triggered: bool, progress: float) -> void:
 	var was_visible := _danger_banner.visible
 	_danger_banner.visible = is_triggered
@@ -511,7 +620,12 @@ func _on_board_game_over(final_score: int, is_new_best: bool) -> void:
 	_new_best_badge.visible = is_new_best
 	_final_score_label.text = UITheme.format_number(final_score)
 	_final_best_label.text = Loc.t("game.final_best", [UITheme.format_number(SaveManager.get_high_score(_board.game_mode))])
-	_game_over_title.text = Loc.t("game.record") if is_new_best else Loc.t("game.over")
+	if is_new_best:
+		_game_over_title.text = Loc.t("game.record")
+	elif _board.game_over_reason == GameBoard.GameOverReason.WAVE_TIMEOUT:
+		_game_over_title.text = Loc.t("game.wave_failed")
+	else:
+		_game_over_title.text = Loc.t("game.over")
 	_build_run_summary()
 
 	# Let the player see the overflow for a beat before the card slides in.
@@ -560,6 +674,8 @@ func _build_run_summary() -> void:
 			lines.append(Loc.t("game.next_discover", [Loc.fruit_plural(next_goal - 1)]))
 		elif next_goal < 0:
 			lines.append(Loc.t("game.complete"))
+	if _board.game_mode == GameMode.Mode.FRENZY:
+		lines.append(Loc.t("game.wave_reached", [_board.frenzy_wave]))
 	lines.append(Loc.t("game.merges", [_run_merges]))
 	_run_info_label.text = "\n".join(PackedStringArray(lines))
 
@@ -670,6 +786,27 @@ func _on_restart_pressed() -> void:
 	_board.reset_game()
 	_reset_run_state()
 	_on_board_score_changed(_board.score, _board.best_score, 0)
+	if _wave_bar.visible:
+		_on_board_frenzy_wave_updated(_board.frenzy_wave, _board.frenzy_wave_score, _board.frenzy_wave_target, _board.frenzy_wave_timer)
+	_maybe_open_frenzy_intro()
+
+
+func _maybe_open_frenzy_intro() -> void:
+	if _board.game_mode != GameMode.Mode.FRENZY:
+		return
+	if SaveManager.is_frenzy_intro_hidden() or _frenzy_intro_modal == null:
+		return
+	_board.dropper.cancel_drag()
+	get_tree().paused = true
+	_intro_paused_game = true
+	_frenzy_intro_modal.open()
+
+
+func _on_frenzy_intro_closed() -> void:
+	if _intro_paused_game:
+		_intro_paused_game = false
+		if not _pause_overlay.visible and not _modal_paused_game:
+			get_tree().paused = false
 
 
 func _on_power_ups_pressed() -> void:
@@ -718,9 +855,12 @@ func _on_language_changed(_code: String) -> void:
 		_next_prop_label.text = FruitProperty.get_short_label(_board.next_property as FruitProperty.Type)
 	if _power_info_button != null and is_instance_valid(_power_info_button):
 		_power_info_button.tooltip_text = Loc.t("menu.powerups")
+	if _wave_bar.visible:
+		_on_board_frenzy_wave_updated(_board.frenzy_wave, _board.frenzy_wave_score, _board.frenzy_wave_target, _board.frenzy_wave_timer)
 
 	_fruit_guide.refresh_language()
 	_power_up_modal.refresh_language()
+	_frenzy_intro_modal.refresh_language()
 	_skin_modal.refresh_language()
 	_language_modal.refresh_language()
 

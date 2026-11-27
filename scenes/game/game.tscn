@@ -68,99 +68,104 @@ theme_override_constants/margin_top = 22
 theme_override_constants/margin_right = 22
 theme_override_constants/margin_bottom = 6
 
-[node name="TopRow" type="HBoxContainer" parent="HUD/TopMargin"]
+[node name="TopVBox" type="VBoxContainer" parent="HUD/TopMargin"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 8
+
+[node name="TopRow" type="HBoxContainer" parent="HUD/TopMargin/TopVBox"]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 12
 
-[node name="LeftCol" type="VBoxContainer" parent="HUD/TopMargin/TopRow"]
+[node name="LeftCol" type="VBoxContainer" parent="HUD/TopMargin/TopVBox/TopRow"]
 custom_minimum_size = Vector2(128, 0)
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 8
 
-[node name="PauseButton" type="Button" parent="HUD/TopMargin/TopRow/LeftCol"]
+[node name="PauseButton" type="Button" parent="HUD/TopMargin/TopVBox/TopRow/LeftCol"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(84, 84)
 layout_mode = 2
 size_flags_horizontal = 0
 focus_mode = 0
 
-[node name="ModeBadge" type="PanelContainer" parent="HUD/TopMargin/TopRow/LeftCol"]
+[node name="ModeBadge" type="PanelContainer" parent="HUD/TopMargin/TopVBox/TopRow/LeftCol"]
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
 size_flags_horizontal = 0
 mouse_filter = 2
 
-[node name="ModeLabel" type="Label" parent="HUD/TopMargin/TopRow/LeftCol/ModeBadge"]
+[node name="ModeLabel" type="Label" parent="HUD/TopMargin/TopVBox/TopRow/LeftCol/ModeBadge"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "FRENZY"
 horizontal_alignment = 1
 
-[node name="ScoreCol" type="VBoxContainer" parent="HUD/TopMargin/TopRow"]
+[node name="ScoreCol" type="VBoxContainer" parent="HUD/TopMargin/TopVBox/TopRow"]
 layout_mode = 2
 size_flags_horizontal = 3
 mouse_filter = 2
 theme_override_constants/separation = 0
 
-[node name="ScoreValue" type="Label" parent="HUD/TopMargin/TopRow/ScoreCol"]
+[node name="ScoreValue" type="Label" parent="HUD/TopMargin/TopVBox/TopRow/ScoreCol"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "0"
 horizontal_alignment = 1
 
-[node name="BestWrap" type="CenterContainer" parent="HUD/TopMargin/TopRow/ScoreCol"]
+[node name="BestWrap" type="CenterContainer" parent="HUD/TopMargin/TopVBox/TopRow/ScoreCol"]
 layout_mode = 2
 mouse_filter = 2
 
-[node name="BestChip" type="PanelContainer" parent="HUD/TopMargin/TopRow/ScoreCol/BestWrap"]
+[node name="BestChip" type="PanelContainer" parent="HUD/TopMargin/TopVBox/TopRow/ScoreCol/BestWrap"]
 unique_name_in_owner = true
 layout_mode = 2
 mouse_filter = 2
 
-[node name="BestRow" type="HBoxContainer" parent="HUD/TopMargin/TopRow/ScoreCol/BestWrap/BestChip"]
+[node name="BestRow" type="HBoxContainer" parent="HUD/TopMargin/TopVBox/TopRow/ScoreCol/BestWrap/BestChip"]
 unique_name_in_owner = true
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 6
 
-[node name="BestValue" type="Label" parent="HUD/TopMargin/TopRow/ScoreCol/BestWrap/BestChip/BestRow"]
+[node name="BestValue" type="Label" parent="HUD/TopMargin/TopVBox/TopRow/ScoreCol/BestWrap/BestChip/BestRow"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Best 0"
 
-[node name="RightCol" type="VBoxContainer" parent="HUD/TopMargin/TopRow"]
+[node name="RightCol" type="VBoxContainer" parent="HUD/TopMargin/TopVBox/TopRow"]
 custom_minimum_size = Vector2(128, 0)
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 6
 
-[node name="NextBubble" type="PanelContainer" parent="HUD/TopMargin/TopRow/RightCol"]
+[node name="NextBubble" type="PanelContainer" parent="HUD/TopMargin/TopVBox/TopRow/RightCol"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(128, 116)
 layout_mode = 2
 mouse_filter = 2
 
-[node name="NextVBox" type="VBoxContainer" parent="HUD/TopMargin/TopRow/RightCol/NextBubble"]
+[node name="NextVBox" type="VBoxContainer" parent="HUD/TopMargin/TopVBox/TopRow/RightCol/NextBubble"]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 0
 alignment = 1
 
-[node name="NextTitle" type="Label" parent="HUD/TopMargin/TopRow/RightCol/NextBubble/NextVBox"]
+[node name="NextTitle" type="Label" parent="HUD/TopMargin/TopVBox/TopRow/RightCol/NextBubble/NextVBox"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "NEXT"
 horizontal_alignment = 1
 
-[node name="NextIconWrap" type="CenterContainer" parent="HUD/TopMargin/TopRow/RightCol/NextBubble/NextVBox"]
+[node name="NextIconWrap" type="CenterContainer" parent="HUD/TopMargin/TopVBox/TopRow/RightCol/NextBubble/NextVBox"]
 custom_minimum_size = Vector2(0, 64)
 layout_mode = 2
 mouse_filter = 2
 
-[node name="NextIcon" type="TextureRect" parent="HUD/TopMargin/TopRow/RightCol/NextBubble/NextVBox/NextIconWrap"]
+[node name="NextIcon" type="TextureRect" parent="HUD/TopMargin/TopVBox/TopRow/RightCol/NextBubble/NextVBox/NextIconWrap"]
 unique_name_in_owner = true
 texture_filter = 1
 custom_minimum_size = Vector2(60, 60)
@@ -169,17 +174,83 @@ mouse_filter = 2
 expand_mode = 1
 stretch_mode = 5
 
-[node name="NextPropTag" type="PanelContainer" parent="HUD/TopMargin/TopRow/RightCol"]
+[node name="NextPropTag" type="PanelContainer" parent="HUD/TopMargin/TopVBox/TopRow/RightCol"]
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
 size_flags_horizontal = 4
 mouse_filter = 2
 
-[node name="NextPropLabel" type="Label" parent="HUD/TopMargin/TopRow/RightCol/NextPropTag"]
+[node name="NextPropLabel" type="Label" parent="HUD/TopMargin/TopVBox/TopRow/RightCol/NextPropTag"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "BOMB"
+horizontal_alignment = 1
+
+[node name="WaveBar" type="PanelContainer" parent="HUD/TopMargin/TopVBox"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+mouse_filter = 2
+
+[node name="WaveRow" type="HBoxContainer" parent="HUD/TopMargin/TopVBox/WaveBar"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 10
+
+[node name="WaveBadge" type="PanelContainer" parent="HUD/TopMargin/TopVBox/WaveBar/WaveRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+
+[node name="WaveLabel" type="Label" parent="HUD/TopMargin/TopVBox/WaveBar/WaveRow/WaveBadge"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Wave 1"
+horizontal_alignment = 1
+
+[node name="WaveProgressWrap" type="Control" parent="HUD/TopMargin/TopVBox/WaveBar/WaveRow"]
+custom_minimum_size = Vector2(0, 34)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+mouse_filter = 2
+
+[node name="WaveProgressBar" type="ProgressBar" parent="HUD/TopMargin/TopVBox/WaveBar/WaveRow/WaveProgressWrap"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+max_value = 300.0
+show_percentage = false
+
+[node name="WaveGoalLabel" type="Label" parent="HUD/TopMargin/TopVBox/WaveBar/WaveRow/WaveProgressWrap"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+text = "0 / 300"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="WaveTimerPill" type="PanelContainer" parent="HUD/TopMargin/TopVBox/WaveBar/WaveRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+
+[node name="WaveTimerLabel" type="Label" parent="HUD/TopMargin/TopVBox/WaveBar/WaveRow/WaveTimerPill"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "20.0s"
 horizontal_alignment = 1
 
 [node name="DangerBanner" type="PanelContainer" parent="HUD"]

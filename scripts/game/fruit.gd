@@ -10,6 +10,9 @@ signal charged_bounced(fruit: Fruit, other: Node)
 const POOL_PARKING_POS := Vector2(-5000.0, -5000.0)
 const BOMB_DURATION := 10.0
 const CONCRETE_FALL_GRAVITY_SCALE := 1.35
+const LOW_GRAVITY_SCALE := 0.14
+const LOW_GRAVITY_LINEAR_DAMP := 0.65
+const LOW_GRAVITY_ANGULAR_DAMP := 0.55
 const LAYER_FRUIT := 1
 const LAYER_JAR := 2
 const LAYER_CONCRETE_FALLING := 4
@@ -156,6 +159,10 @@ func activate(
 		target_lin_damp = 0.01
 		target_ang_damp = 0.05
 		target_can_sleep = false
+	elif fruit_property == FruitProperty.Type.LOW_GRAVITY:
+		target_gravity = LOW_GRAVITY_SCALE
+		target_lin_damp = LOW_GRAVITY_LINEAR_DAMP
+		target_ang_damp = LOW_GRAVITY_ANGULAR_DAMP
 
 	position = pos
 	rotation = 0.0

@@ -3,7 +3,7 @@ extends Sprite2D
 
 ## Shows a fruit's Frenzy property using shared assets only:
 ## - Bomb / Nuclear: the pixel-art power-up icon on top of the fruit.
-## - Sticky / Concrete / Charged: a shared tint + outline ShaderMaterial on the fruit sprite.
+## - Sticky / Concrete / Charged / Low Gravity / Shadow: a shared tint + outline ShaderMaterial on the fruit sprite.
 ## No per-frame _process, no Labels or StyleBoxes, so property fruits stay cheap.
 
 ## The bomb icon starts blinking red during the last seconds of its fuse.

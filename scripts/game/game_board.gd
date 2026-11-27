@@ -11,12 +11,21 @@ signal fruit_unlocked_at(level: int, local_pos: Vector2)
 ## Emitted for every merge. level = the new fruit's level (or the max level for a bonus merge).
 signal fruit_merged(level: int, local_pos: Vector2, points: int, is_max_bonus: bool)
 signal explosion_triggered(local_pos: Vector2, blast_radius: float, is_nuclear: bool)
+signal shadow_split_triggered(local_pos: Vector2, shot_level: int)
+signal frenzy_wave_updated(wave: int, wave_score: int, wave_target: int, time_left: float)
+signal frenzy_wave_advanced(new_wave: int, new_target: int, unlocked_obstacle: int)
 ## The drop pool grew (bigger fruits drop more often / a new tier can drop). See SpawnProgression.
 signal spawn_phase_changed(phase: int, max_drop_level: int)
 ## The score floor rose: fruits below floor_level (mostly) stop dropping.
 signal spawn_floor_changed(floor_level: int)
 signal danger_changed(is_triggered: bool, progress: float)
 signal game_over(final_score: int, is_new_best: bool)
+
+enum GameOverReason {
+	NONE,
+	OVERFLOW,
+	WAVE_TIMEOUT,
+}
 
 const INNER_HALF_WIDTH := JarContainer.INNER_HALF_WIDTH
 const WALL_THICKNESS := JarContainer.WALL_THICKNESS
@@ -25,6 +34,13 @@ const JAR_TOP_Y := JarContainer.JAR_TOP_Y
 const DROP_Y := JarContainer.DROP_Y
 const DANGER_LINE_Y := JarContainer.DANGER_LINE_Y
 const DROP_COOLDOWN := DropperController.DROP_COOLDOWN
+
+const FRENZY_WAVE_DURATION := 20.0
+const FRENZY_WAVE_SCORE_STEP := 300
+const LOW_GRAVITY_DROP_VY := 22.0
+const LOW_GRAVITY_MAX_FALL_SPEED := 190.0
+const SHADOW_SHOOT_SPEED_X := 320.0
+const SHADOW_SHOOT_SPEED_Y := 260.0
 
 const BOMB_BLAST_EXTRA_RADIUS := 85.0
 const NUCLEAR_BLAST_EXTRA_RADIUS := 165.0
@@ -40,6 +56,11 @@ var game_mode: GameMode.Mode = GameMode.Mode.NORMAL
 var score: int = 0
 var best_score: int = 0
 var is_game_over: bool = false
+var game_over_reason: GameOverReason = GameOverReason.NONE
+var frenzy_wave: int = 1
+var frenzy_wave_timer: float = FRENZY_WAVE_DURATION
+var frenzy_wave_score: int = 0
+var frenzy_wave_target: int = FRENZY_WAVE_SCORE_STEP
 var current_level: int = 0
 var next_level: int = 0
 var current_property: FruitProperty.Type = FruitProperty.Type.NONE
@@ -57,6 +78,7 @@ var spawn_progression := SpawnProgression.new()
 var _fruits_container: Node2D
 var _pending_sticky_contacts: Array[Array] = []
 var _rng := RandomNumberGenerator.new()
+var _last_wave_emitted_timer: float = -1.0
 
 
 func _ready() -> void:
@@ -135,9 +157,13 @@ func set_game_mode(mode: GameMode.Mode) -> void:
 		reset_game()
 
 
+static func get_frenzy_wave_target(wave: int) -> int:
+	return maxi(wave, 1) * FRENZY_WAVE_SCORE_STEP
+
+
 func _pick_property_for_mode() -> FruitProperty.Type:
 	if game_mode == GameMode.Mode.FRENZY:
-		return FruitProperty.pick_for_frenzy(_rng)
+		return FruitProperty.pick_for_frenzy_wave(_rng, frenzy_wave)
 	return FruitProperty.Type.NONE
 
 
@@ -146,8 +172,14 @@ func reset_game() -> void:
 	_pending_sticky_contacts.clear()
 
 	is_game_over = false
+	game_over_reason = GameOverReason.NONE
 	score = 0
 	best_score = SaveManager.get_high_score(game_mode)
+	frenzy_wave = 1
+	frenzy_wave_timer = FRENZY_WAVE_DURATION
+	frenzy_wave_score = 0
+	frenzy_wave_target = get_frenzy_wave_target(1)
+	_last_wave_emitted_timer = FRENZY_WAVE_DURATION
 
 	fruit_pool.release_all()
 	merge_effects.clear_all()
@@ -166,6 +198,8 @@ func reset_game() -> void:
 	score_changed.emit(score, best_score, 0)
 	next_fruit_changed.emit(next_level, next_property)
 	danger_changed.emit(false, 0.0)
+	if game_mode == GameMode.Mode.FRENZY:
+		frenzy_wave_updated.emit(frenzy_wave, frenzy_wave_score, frenzy_wave_target, frenzy_wave_timer)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -191,6 +225,8 @@ func _physics_process(delta: float) -> void:
 
 	_tick_frenzy_fruits(delta)
 	danger_detector.evaluate(fruit_pool.active_fruits, delta)
+	if game_mode == GameMode.Mode.FRENZY and not is_game_over:
+		_tick_frenzy_wave(delta)
 
 
 func _on_drop_requested(spawn_x: float) -> void:
@@ -228,7 +264,8 @@ func _on_drop_requested(spawn_x: float) -> void:
 		FruitRegistry.textures.get_sprite_scale(dropped_level),
 		dropped_property
 	)
-	fruit.activate(Vector2(clamped_x, JarContainer.DROP_Y), Vector2(0.0, 40.0), false, JarContainer.DANGER_LINE_Y, false)
+	var initial_vy := LOW_GRAVITY_DROP_VY if dropped_property == FruitProperty.Type.LOW_GRAVITY else 40.0
+	fruit.activate(Vector2(clamped_x, JarContainer.DROP_Y), Vector2(0.0, initial_vy), false, JarContainer.DANGER_LINE_Y, false)
 	AudioManager.play_drop()
 	next_fruit_changed.emit(next_level, next_property)
 
@@ -269,6 +306,9 @@ func _process_merge_queue() -> void:
 		if score > best_score:
 			best_score = score
 		score_changed.emit(score, best_score, gained)
+		if game_mode == GameMode.Mode.FRENZY:
+			frenzy_wave_score += gained
+			frenzy_wave_updated.emit(frenzy_wave, frenzy_wave_score, frenzy_wave_target, frenzy_wave_timer)
 	_sync_spawn_floor()
 
 	var nuclear_blasts: Array = result.get("nuclear_blasts", [])
@@ -277,6 +317,14 @@ func _process_merge_queue() -> void:
 		var base_r := float(blast.get("base_radius", 40.0))
 		var exempt: Fruit = blast.get("exempt", null)
 		_trigger_explosion(center, base_r + NUCLEAR_BLAST_EXTRA_RADIUS, true, exempt)
+
+	var shadow_splits: Array = result.get("shadow_splits", [])
+	for split in shadow_splits:
+		var shot_lvl := int(split.get("level", 0))
+		var split_center: Vector2 = split.get("center", Vector2.ZERO)
+		var center_r := float(split.get("center_radius", 0.0))
+		var was_below := bool(split.get("parent_was_below", false))
+		_trigger_shadow_split(shot_lvl, split_center, center_r, was_below)
 
 
 ## Feeds the score to the spawn picker and announces when the drop floor rises.
@@ -358,11 +406,77 @@ func _tick_frenzy_fruits(delta: float) -> void:
 				clamped = true
 			if clamped:
 				fruit.linear_velocity = vel
+		elif fruit.fruit_property == FruitProperty.Type.LOW_GRAVITY:
+			var lg_vel := fruit.linear_velocity
+			if lg_vel.y > LOW_GRAVITY_MAX_FALL_SPEED:
+				lg_vel.y = LOW_GRAVITY_MAX_FALL_SPEED
+				fruit.linear_velocity = lg_vel
 
 	for bomb in expired_bombs:
 		if bomb == null or bomb.in_pool or bomb.is_merging:
 			continue
 		_trigger_explosion(bomb.position, bomb.radius + BOMB_BLAST_EXTRA_RADIUS, false, null)
+
+
+func _trigger_shadow_split(shot_level: int, center: Vector2, center_radius: float, parent_was_below: bool) -> void:
+	var catalog := FruitRegistry.catalog
+	var shot_def := catalog.get_fruit(shot_level)
+	if shot_def == null:
+		return
+
+	var shape := catalog.get_shape(shot_level)
+	var tex := FruitRegistry.textures.get_texture(shot_level)
+	var phys_mat := catalog.get_physics_material()
+	var spr_scale := FruitRegistry.textures.get_sprite_scale(shot_level)
+	var min_sep := center_radius + shot_def.radius
+
+	for dir_x in [-1.0, 1.0]:
+		var raw_pos := center + Vector2(dir_x * (min_sep + 6.0), -shot_def.radius * 0.35)
+		var spawn_pos := jar.clamp_merge_position(raw_pos, shot_def.radius)
+		if center_radius > 0.0 and spawn_pos.distance_to(center) < min_sep:
+			spawn_pos.y = maxf(JarContainer.DROP_Y, center.y - min_sep * 0.75)
+
+		var shot := fruit_pool.acquire()
+		shot.configure(shot_def, shape, tex, phys_mat, spr_scale, FruitProperty.Type.NONE)
+		shot.activate(
+			spawn_pos,
+			Vector2(dir_x * SHADOW_SHOOT_SPEED_X, -SHADOW_SHOOT_SPEED_Y),
+			true,
+			JarContainer.DANGER_LINE_Y,
+			parent_was_below
+		)
+
+	merge_effects.spawn_property_splash(
+		center,
+		maxf(center_radius, shot_def.radius),
+		FruitProperty.get_color(FruitProperty.Type.SHADOW),
+		10
+	)
+	AudioManager.play_shadow_split()
+	shadow_split_triggered.emit(center, shot_level)
+
+
+func _tick_frenzy_wave(delta: float) -> void:
+	frenzy_wave_timer = maxf(frenzy_wave_timer - delta, 0.0)
+	if frenzy_wave_timer <= 0.0:
+		if merge_resolver.has_pending():
+			_process_merge_queue()
+		if frenzy_wave_score >= frenzy_wave_target:
+			frenzy_wave += 1
+			frenzy_wave_score = 0
+			frenzy_wave_target = get_frenzy_wave_target(frenzy_wave)
+			frenzy_wave_timer = FRENZY_WAVE_DURATION
+			_last_wave_emitted_timer = frenzy_wave_timer
+			var unlocked := FruitProperty.get_obstacle_unlocked_at_wave(frenzy_wave)
+			AudioManager.play_wave_clear()
+			frenzy_wave_advanced.emit(frenzy_wave, frenzy_wave_target, unlocked)
+			frenzy_wave_updated.emit(frenzy_wave, frenzy_wave_score, frenzy_wave_target, frenzy_wave_timer)
+		else:
+			frenzy_wave_updated.emit(frenzy_wave, frenzy_wave_score, frenzy_wave_target, 0.0)
+			_trigger_game_over(GameOverReason.WAVE_TIMEOUT)
+	elif absf(_last_wave_emitted_timer - frenzy_wave_timer) >= 0.05:
+		_last_wave_emitted_timer = frenzy_wave_timer
+		frenzy_wave_updated.emit(frenzy_wave, frenzy_wave_score, frenzy_wave_target, frenzy_wave_timer)
 
 
 func _trigger_explosion(center: Vector2, blast_radius: float, is_nuclear: bool, exempt_fruit: Fruit) -> void:
@@ -644,9 +758,14 @@ func _on_danger_state_changed(triggered: bool, progress: float) -> void:
 
 
 func _on_danger_game_over() -> void:
+	_trigger_game_over(GameOverReason.OVERFLOW)
+
+
+func _trigger_game_over(reason: GameOverReason) -> void:
 	if is_game_over:
 		return
 	is_game_over = true
+	game_over_reason = reason
 	dropper.cancel_drag()
 	dropper.hide_guide()
 
