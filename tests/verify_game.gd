@@ -43,6 +43,7 @@ func _run_all() -> void:
 	await _test_ad_manager_and_banner_layout()
 	await _test_localization_and_language_modal()
 	_test_splash_and_loading_config()
+	await _test_versioning()
 
 	await get_tree().process_frame
 	await get_tree().process_frame
@@ -1539,3 +1540,79 @@ func _test_splash_and_loading_config() -> void:
 			_assert(loading.compute_post_load_progress(0.25, 2.5) < 1.0, "Post-load progress before 3.0s must be < 1.0")
 			_assert(is_equal_approx(loading.compute_post_load_progress(0.25, 3.0), 1.0), "Post-load progress at t=3.0s must reach 1.0")
 			loading.free()
+
+
+func _test_versioning() -> void:
+	# 1. SemVer parsing
+	var p1 := AppVersion.parse_semver("1.0.0")
+	_assert(p1.valid and p1.major == 1 and p1.minor == 0 and p1.patch == 0, "parse_semver('1.0.0') failed")
+	var p2 := AppVersion.parse_semver("2.14.9")
+	_assert(p2.valid and p2.major == 2 and p2.minor == 14 and p2.patch == 9, "parse_semver('2.14.9') failed")
+	var p3 := AppVersion.parse_semver("v1.2.3")
+	_assert(p3.valid and p3.major == 1 and p3.minor == 2 and p3.patch == 3, "parse_semver('v1.2.3') failed")
+	var p4 := AppVersion.parse_semver("1.0")
+	_assert(p4.valid and p4.major == 1 and p4.minor == 0 and p4.patch == 0, "parse_semver('1.0') failed")
+	var p5 := AppVersion.parse_semver("3")
+	_assert(p5.valid and p5.major == 3 and p5.minor == 0 and p5.patch == 0, "parse_semver('3') failed")
+	var p6 := AppVersion.parse_semver("1.2.3-beta+7")
+	_assert(p6.valid and p6.major == 1 and p6.minor == 2 and p6.patch == 3, "parse_semver('1.2.3-beta+7') failed")
+	var p_empty := AppVersion.parse_semver("")
+	_assert(not p_empty.valid and p_empty.major == 1 and p_empty.minor == 0 and p_empty.patch == 0, "parse_semver('') must fall back to invalid 1.0.0")
+	var p_bad := AppVersion.parse_semver("abc")
+	_assert(not p_bad.valid and p_bad.major == 1 and p_bad.minor == 0 and p_bad.patch == 0, "parse_semver('abc') must fall back to invalid 1.0.0")
+
+	# 2. Patch bumping
+	_assert(AppVersion.bump_patch("1.0.0") == "1.0.1", "bump_patch('1.0.0') must be '1.0.1'")
+	_assert(AppVersion.bump_patch("1.0.9") == "1.0.10", "bump_patch('1.0.9') must be '1.0.10'")
+	_assert(AppVersion.bump_patch("2.3") == "2.3.1", "bump_patch('2.3') must be '2.3.1'")
+	_assert(AppVersion.bump_patch("") == "1.0.1", "bump_patch('') must be '1.0.1'")
+
+	# 3. Runtime ProjectSettings version helpers
+	_assert(AppVersion.get_version_string() == "1.0.0", "Expected AppVersion.get_version_string() == '1.0.0', got '%s'" % AppVersion.get_version_string())
+	_assert(AppVersion.get_display_version() == "v1.0.0", "Expected AppVersion.get_display_version() == 'v1.0.0', got '%s'" % AppVersion.get_display_version())
+
+	# 4. ConfigFile version/code bumping helper
+	var export_plugin_script := load("res://addons/auto_version/auto_version_export_plugin.gd")
+	_assert(export_plugin_script != null, "AutoVersionExportPlugin script must load")
+	if export_plugin_script != null:
+		var cfg_empty_name := ConfigFile.new()
+		cfg_empty_name.set_value("preset.0", "name", "Android")
+		cfg_empty_name.set_value("preset.0.options", "version/code", 2)
+		cfg_empty_name.set_value("preset.0.options", "version/name", "")
+		cfg_empty_name.set_value("preset.1", "name", "iOS")
+		cfg_empty_name.set_value("preset.1.options", "version/code", 10)
+		var bumped_code: int = export_plugin_script.bump_config_file_version_code(cfg_empty_name, "Android", "1.0.1")
+		_assert(bumped_code == 3, "Expected bumped code 3, got %d" % bumped_code)
+		_assert(cfg_empty_name.get_value("preset.0.options", "version/code") == 3, "Android version/code must bump 2 -> 3")
+		_assert(cfg_empty_name.get_value("preset.0.options", "version/name") == "", "Empty version/name must remain empty")
+		_assert(cfg_empty_name.get_value("preset.1.options", "version/code") == 10, "Non-matching preset iOS must stay untouched")
+
+		var cfg_with_name := ConfigFile.new()
+		cfg_with_name.set_value("preset.0", "name", "Android")
+		cfg_with_name.set_value("preset.0.options", "version/code", 4)
+		cfg_with_name.set_value("preset.0.options", "version/name", "1.0.0")
+		var bumped_code2: int = export_plugin_script.bump_config_file_version_code(cfg_with_name, "Android", "1.0.1")
+		_assert(bumped_code2 == 5, "Expected bumped code 5, got %d" % bumped_code2)
+		_assert(cfg_with_name.get_value("preset.0.options", "version/code") == 5, "Android version/code must bump 4 -> 5")
+		_assert(cfg_with_name.get_value("preset.0.options", "version/name") == "1.0.1", "Non-empty version/name must update to '1.0.1'")
+
+	# 5. Project configuration checks
+	var project_cfg := ConfigFile.new()
+	_assert(project_cfg.load("res://project.godot") == OK, "project.godot must load as ConfigFile")
+	var enabled_plugins: PackedStringArray = project_cfg.get_value("editor_plugins", "enabled", PackedStringArray())
+	_assert(enabled_plugins.has("res://addons/auto_version/plugin.cfg"), "res://addons/auto_version/plugin.cfg must be enabled in project.godot")
+
+	var export_cfg := ConfigFile.new()
+	_assert(export_cfg.load("res://export_presets.cfg") == OK, "export_presets.cfg must load as ConfigFile")
+	var preset_code: Variant = export_cfg.get_value("preset.0.options", "version/code", 0)
+	_assert(preset_code is int and int(preset_code) > 0, "export_presets.cfg preset.0.options version/code must be a positive int")
+
+	# 6. Main Menu VersionLabel rendering
+	var menu := (ResourceLoader.load(SceneManager.MENU_SCENE) as PackedScene).instantiate()
+	add_child(menu)
+	await get_tree().process_frame
+	_assert(menu._version_label != null, "Menu must have _version_label")
+	if menu._version_label != null:
+		_assert(menu._version_label.text == AppVersion.get_display_version(), "Menu version label must match AppVersion.get_display_version()")
+		_assert(menu._version_label.visible, "Menu version label must be visible")
+	menu.queue_free()

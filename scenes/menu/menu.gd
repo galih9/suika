@@ -20,6 +20,7 @@ const SLOT_SIZE := 100.0
 @onready var _play_button: Button = %PlayButton
 @onready var _frenzy_button: Button = %FrenzyButton
 @onready var _power_ups_button: Button = %PowerUpsButton
+@onready var _version_label: Label = %VersionLabel
 
 var _quit_button: Button
 var _sound_button: Button
@@ -169,6 +170,9 @@ func _style_static() -> void:
 
 	UITheme.style_secondary_button(_power_ups_button, 30, 26)
 	UITheme.set_button_content(_power_ups_button, "bolt", Loc.t("menu.powerups"), 26, UITheme.TEXT_DARK, Color(0, 0, 0, 0), 30.0)
+
+	_version_label.text = AppVersion.get_display_version()
+	UITheme.style_label(_version_label, 18, Color(UITheme.TEXT_MUTED, 0.78), false)
 
 
 func _build_fruit_trio() -> void:
@@ -340,7 +344,7 @@ func _update_info_label() -> void:
 # --- Intro animation -------------------------------------------------------------------------
 
 func _play_intro() -> void:
-	var items: Array[Control] = [_hero, _best_row, _collection_card, _play_button, _frenzy_button.get_parent() as Control]
+	var items: Array[Control] = [_hero, _best_row, _collection_card, _play_button, _frenzy_button.get_parent() as Control, _version_label]
 	var delay := 0.0
 	for item in items:
 		item.modulate.a = 0.0

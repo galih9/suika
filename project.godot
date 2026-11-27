@@ -8,9 +8,14 @@
 
 config_version=5
 
+[admob]
+
+general/android/enable_r8_optimization=true
+
 [application]
 
 config/name="Fruityzer - Fruit Merge"
+config/version="1.0.1"
 run/main_scene="res://scenes/boot/boot.tscn"
 config/features=PackedStringArray("4.7", "Mobile")
 config/icon="uid://dwn0ael6u0kjp"
@@ -36,7 +41,7 @@ window/handheld/orientation=1
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/admob/plugin.cfg")
+enabled=PackedStringArray("res://addons/admob/plugin.cfg", "res://addons/auto_version/plugin.cfg")
 
 [physics]
 
