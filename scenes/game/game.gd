@@ -132,6 +132,7 @@ func _ready() -> void:
 
 	FruitRegistry.skin_changed.connect(_on_skin_changed)
 	Loc.language_changed.connect(_on_language_changed)
+	AdManager.banner_height_changed.connect(_on_banner_height_changed)
 
 	get_viewport().size_changed.connect(_layout_board)
 	_pause_overlay.visible = false
@@ -151,6 +152,7 @@ func _ready() -> void:
 	# Sync initial HUD values from board.
 	_on_board_score_changed(_board.score, _board.best_score, 0)
 	_on_board_next_fruit_changed(_board.next_level, _board.next_property)
+	AdManager.show_banner()
 	await get_tree().process_frame
 	_layout_board()
 
@@ -160,6 +162,8 @@ func _exit_tree() -> void:
 		Loc.language_changed.disconnect(_on_language_changed)
 	if FruitRegistry.skin_changed.is_connected(_on_skin_changed):
 		FruitRegistry.skin_changed.disconnect(_on_skin_changed)
+	if AdManager.banner_height_changed.is_connected(_on_banner_height_changed):
+		AdManager.banner_height_changed.disconnect(_on_banner_height_changed)
 	# Never leave a screen-shake offset behind for the next scene.
 	if is_inside_tree():
 		get_viewport().canvas_transform = Transform2D.IDENTITY
@@ -267,14 +271,22 @@ func _build_power_info_button() -> void:
 
 # --- Layout ----------------------------------------------------------------------------------
 
+func _on_banner_height_changed(_height_pixels: int) -> void:
+	_layout_board()
+
+
 func _layout_board() -> void:
+	var vp := get_viewport()
 	var vp_size := get_viewport_rect().size
-	var safe_top := UITheme.get_safe_top(get_viewport())
-	var safe_bottom := UITheme.get_safe_bottom(get_viewport())
-	_top_margin.add_theme_constant_override("margin_top", int(22.0 + safe_top))
+	var safe_top := UITheme.get_safe_top(vp)
+	var safe_bottom := UITheme.get_safe_bottom(vp)
+	var banner_top := AdManager.get_banner_height_in_viewport(vp)
+	var top_pad := 12.0 if banner_top > 0.0 else 22.0
+	_top_margin.add_theme_constant_override("margin_top", int(roundf(top_pad + safe_top + banner_top)))
 	_bottom_margin.add_theme_constant_override("margin_bottom", int(18.0 + safe_bottom))
 
-	_top_hud_bottom = maxf(_top_margin.get_combined_minimum_size().y, 150.0)
+	_top_hud_bottom = maxf(_top_margin.get_combined_minimum_size().y, 150.0 + banner_top)
+	_top_margin.offset_bottom = _top_hud_bottom
 	_bottom_bar_height = maxf(_bottom_margin.get_combined_minimum_size().y, 110.0)
 	var avail_h := maxf(vp_size.y - _top_hud_bottom - _bottom_bar_height, 420.0)
 

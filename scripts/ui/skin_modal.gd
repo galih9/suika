@@ -1,7 +1,7 @@
 class_name SkinModal
 extends Control
 
-## Pop-up card letting the player choose and preview fruit skins from the Menu or Pause screen.
+## Pop-up card letting the player choose, preview, and unlock fruit skins via rewarded ads.
 
 signal closed
 signal skin_selected(skin_id: String)
@@ -12,10 +12,12 @@ var _dim: ColorRect
 var _card: PanelContainer
 var _title_label: Label
 var _subtitle_label: Label
+var _status_label: Label
 var _done_button: Button
 var _cards_box: VBoxContainer
 var _card_entries: Array[Dictionary] = []
 var _is_open: bool = false
+var _pending_unlock_skin_id: String = ""
 
 
 func _init() -> void:
@@ -32,6 +34,19 @@ func _ready() -> void:
 	offset_bottom = 0.0
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 	_build()
+
+	AdManager.rewarded_ad_earned.connect(_on_rewarded_ad_earned)
+	AdManager.rewarded_ad_closed.connect(_on_rewarded_ad_closed)
+	AdManager.rewarded_ad_failed.connect(_on_rewarded_ad_failed)
+
+
+func _exit_tree() -> void:
+	if AdManager.rewarded_ad_earned.is_connected(_on_rewarded_ad_earned):
+		AdManager.rewarded_ad_earned.disconnect(_on_rewarded_ad_earned)
+	if AdManager.rewarded_ad_closed.is_connected(_on_rewarded_ad_closed):
+		AdManager.rewarded_ad_closed.disconnect(_on_rewarded_ad_closed)
+	if AdManager.rewarded_ad_failed.is_connected(_on_rewarded_ad_failed):
+		AdManager.rewarded_ad_failed.disconnect(_on_rewarded_ad_failed)
 
 
 func _build() -> void:
@@ -74,6 +89,12 @@ func _build() -> void:
 	_subtitle_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_subtitle_label.custom_minimum_size = Vector2(560, 0)
 	col.add_child(_subtitle_label)
+
+	_status_label = UITheme.make_label("", 20, UITheme.TEXT_MUTED, true)
+	_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_status_label.custom_minimum_size = Vector2(560, 0)
+	_status_label.visible = false
+	col.add_child(_status_label)
 
 	_cards_box = VBoxContainer.new()
 	_cards_box.add_theme_constant_override("separation", 12)
@@ -157,9 +178,9 @@ func _make_skin_card(skin: SkinDefinition) -> Dictionary:
 	badge_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	badge_row.add_theme_constant_override("separation", 6)
 	badge.add_child(badge_row)
-	var check_icon := PixelIcons.make_rect("check", 18.0, Color.WHITE)
-	check_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	badge_row.add_child(check_icon)
+	var badge_icon := PixelIcons.make_rect("check", 18.0, Color.WHITE)
+	badge_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	badge_row.add_child(badge_icon)
 	var badge_lbl := UITheme.make_label(Loc.t("skin.equipped"), 18, Color.WHITE, true)
 	badge_row.add_child(badge_lbl)
 	top.add_child(badge)
@@ -190,35 +211,76 @@ func _make_skin_card(skin: SkinDefinition) -> Dictionary:
 		"skin": skin,
 		"button": btn,
 		"badge": badge,
+		"badge_icon": badge_icon,
 		"name_label": name_lbl,
 		"desc_label": desc_lbl,
 		"badge_label": badge_lbl,
+		"preview_row": preview_row,
 	}
 
 
 func _refresh_cards() -> void:
 	var active_id := FruitRegistry.active_skin_id
+	var ad_busy := not _pending_unlock_skin_id.is_empty()
 	for entry in _card_entries:
 		var skin: SkinDefinition = entry["skin"]
 		var btn: Button = entry["button"]
 		var badge: PanelContainer = entry["badge"]
-		var selected := (skin.id == active_id)
-		badge.visible = selected
+		var badge_icon: TextureRect = entry["badge_icon"]
+		var badge_lbl: Label = entry["badge_label"]
+		var preview_row: HBoxContainer = entry["preview_row"]
+
+		var unlocked := FruitRegistry.is_skin_unlocked(skin.id)
+		var selected := unlocked and (skin.id == active_id)
+		var is_loading := (_pending_unlock_skin_id == skin.id)
+
+		btn.disabled = ad_busy
 
 		if selected:
+			badge.visible = true
+			badge.add_theme_stylebox_override(
+				"panel",
+				UITheme.make_panel_style(skin.accent_color, skin.accent_shadow, 14, 0, 12, 4)
+			)
+			badge_icon.texture = PixelIcons.get_icon("check")
+			badge_lbl.text = Loc.t("skin.equipped")
+			preview_row.modulate = Color.WHITE
+
 			var face := skin.accent_color.lerp(Color.WHITE, 0.80)
 			var normal := _make_card_button_style(face, skin.accent_color, false, true)
-			var hover := _make_card_button_style(face.lightened(0.04), skin.accent_color, false, true)
-			var pressed := _make_card_button_style(face.darkened(0.04), skin.accent_color, true, true)
 			btn.add_theme_stylebox_override("normal", normal)
-			btn.add_theme_stylebox_override("hover", hover)
-			btn.add_theme_stylebox_override("pressed", pressed)
-		else:
+			btn.add_theme_stylebox_override("hover", _make_card_button_style(face.lightened(0.04), skin.accent_color, false, true))
+			btn.add_theme_stylebox_override("pressed", _make_card_button_style(face.darkened(0.04), skin.accent_color, true, true))
+			btn.add_theme_stylebox_override("disabled", normal)
+		elif unlocked:
+			badge.visible = false
+			preview_row.modulate = Color.WHITE
+
 			var face := Color("#F4FAFD")
 			var shadow := Color("#D3E6EE")
-			btn.add_theme_stylebox_override("normal", _make_card_button_style(face, shadow, false, false))
+			var normal := _make_card_button_style(face, shadow, false, false)
+			btn.add_theme_stylebox_override("normal", normal)
 			btn.add_theme_stylebox_override("hover", _make_card_button_style(face.lightened(0.04), shadow, false, false))
 			btn.add_theme_stylebox_override("pressed", _make_card_button_style(face.darkened(0.04), shadow, true, false))
+			btn.add_theme_stylebox_override("disabled", normal)
+		else:
+			badge.visible = true
+			badge.add_theme_stylebox_override(
+				"panel",
+				UITheme.make_panel_style(UITheme.ORANGE, UITheme.ORANGE_SHADOW, 14, 0, 12, 4)
+			)
+			badge_icon.texture = PixelIcons.get_icon("lock")
+			badge_lbl.text = Loc.t("skin.loading_ad") if is_loading else Loc.t("skin.watch_ad")
+			preview_row.modulate = Color(0.82, 0.86, 0.90, 0.72)
+
+			var face := Color("#EDF2F6")
+			var shadow := Color("#C8D6E0")
+			var normal := _make_card_button_style(face, shadow, false, false)
+			btn.add_theme_stylebox_override("normal", normal)
+			btn.add_theme_stylebox_override("hover", _make_card_button_style(face.lightened(0.04), shadow, false, false))
+			btn.add_theme_stylebox_override("pressed", _make_card_button_style(face.darkened(0.04), shadow, true, false))
+			btn.add_theme_stylebox_override("disabled", normal)
+
 		btn.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 
 
@@ -231,18 +293,87 @@ func _make_card_button_style(face: Color, shadow: Color, pressed: bool, highligh
 	return sb
 
 
-func _on_card_pressed(skin_id: String, btn: Button) -> void:
-	var changed := FruitRegistry.set_skin(skin_id)
-	if changed:
-		AudioManager.play_pop(1.15)
-	else:
-		AudioManager.play_click()
-	_refresh_cards()
+func _set_status(text: String, color: Color = UITheme.TEXT_MUTED) -> void:
+	if _status_label == null:
+		return
+	_status_label.text = text
+	_status_label.add_theme_color_override("font_color", color)
+	_status_label.visible = not text.is_empty()
+
+
+func _find_card_entry(skin_id: String) -> Dictionary:
+	for entry in _card_entries:
+		var skin: SkinDefinition = entry["skin"]
+		if skin.id == skin_id:
+			return entry
+	return {}
+
+
+func _bounce_button(btn: Button) -> void:
+	if btn == null:
+		return
 	btn.pivot_offset = btn.size * 0.5
 	btn.scale = Vector2(1.04, 1.04)
 	var tw := btn.create_tween()
 	tw.tween_property(btn, "scale", Vector2.ONE, 0.24).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	skin_selected.emit(skin_id)
+
+
+func _on_card_pressed(skin_id: String, btn: Button) -> void:
+	if not _pending_unlock_skin_id.is_empty():
+		return
+
+	if FruitRegistry.is_skin_unlocked(skin_id):
+		_set_status("")
+		var changed := FruitRegistry.set_skin(skin_id)
+		if changed:
+			AudioManager.play_pop(1.15)
+		else:
+			AudioManager.play_click()
+		_refresh_cards()
+		_bounce_button(btn)
+		skin_selected.emit(skin_id)
+		return
+
+	AudioManager.play_click()
+	_pending_unlock_skin_id = skin_id
+	_set_status(Loc.t("skin.loading_ad"), UITheme.TEXT_MUTED)
+	_refresh_cards()
+	AdManager.show_rewarded_ad(skin_id)
+
+
+func _on_rewarded_ad_earned(context_id: String) -> void:
+	if context_id.is_empty() or context_id != _pending_unlock_skin_id:
+		return
+	FruitRegistry.unlock_skin(context_id)
+	FruitRegistry.set_skin(context_id, true)
+	AudioManager.play_unlock()
+
+	var skin := FruitRegistry.skins.get_skin(context_id)
+	var skin_name := Loc.t(skin.name_key) if skin != null else context_id
+	_set_status(Loc.t("skin.unlocked", [skin_name]), UITheme.GREEN_SHADOW)
+	_refresh_cards()
+
+	var entry := _find_card_entry(context_id)
+	if not entry.is_empty():
+		_bounce_button(entry["button"] as Button)
+	skin_selected.emit(context_id)
+
+
+func _on_rewarded_ad_closed(context_id: String, earned: bool) -> void:
+	if context_id != _pending_unlock_skin_id:
+		return
+	_pending_unlock_skin_id = ""
+	if not earned:
+		_set_status(Loc.t("skin.ad_skipped"), UITheme.ORANGE_SHADOW)
+	_refresh_cards()
+
+
+func _on_rewarded_ad_failed(context_id: String, _reason: String) -> void:
+	if context_id != _pending_unlock_skin_id:
+		return
+	_pending_unlock_skin_id = ""
+	_set_status(Loc.t("skin.ad_unavailable"), UITheme.DANGER_RED)
+	_refresh_cards()
 
 
 func refresh_language() -> void:
@@ -256,10 +387,9 @@ func refresh_language() -> void:
 		var skin: SkinDefinition = entry["skin"]
 		var name_lbl: Label = entry["name_label"]
 		var desc_lbl: Label = entry["desc_label"]
-		var badge_lbl: Label = entry["badge_label"]
 		name_lbl.text = Loc.t(skin.name_key)
 		desc_lbl.text = Loc.t(skin.desc_key)
-		badge_lbl.text = Loc.t("skin.equipped")
+	_refresh_cards()
 
 
 func get_card_count() -> int:
@@ -270,8 +400,9 @@ func open() -> void:
 	if _is_open:
 		return
 	_is_open = true
+	_pending_unlock_skin_id = ""
+	_set_status("")
 	refresh_language()
-	_refresh_cards()
 	visible = true
 	AudioManager.play_click()
 	_dim.modulate.a = 0.0
@@ -290,6 +421,9 @@ func close() -> void:
 	if not _is_open:
 		return
 	_is_open = false
+	if not _pending_unlock_skin_id.is_empty():
+		AdManager.cancel_pending_rewarded_ad()
+		_pending_unlock_skin_id = ""
 	AudioManager.play_click()
 	var tw := create_tween().set_parallel(true)
 	tw.tween_property(_dim, "modulate:a", 0.0, 0.14)

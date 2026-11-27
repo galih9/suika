@@ -4,6 +4,7 @@ extends Node
 ## seen power-up tips and a few lifetime stats in user://save_data.cfg.
 
 signal fruit_discovered(level: int)
+signal skin_unlocked(skin_id: String)
 
 const SAVE_PATH := "user://save_data.cfg"
 ## The game used to be called "Fruity-zer" and before that "Buah Merge". On desktop Godot keeps
@@ -23,6 +24,7 @@ const KEY_SKIN := "skin"
 const SECTION_COLLECTION := "collection"
 const KEY_DISCOVERED := "discovered_mask"
 const KEY_SEEN_POWERUPS := "seen_powerups_mask"
+const KEY_UNLOCKED_SKINS := "unlocked_skins"
 
 var _config := ConfigFile.new()
 var _high_score: int = 0
@@ -34,6 +36,7 @@ var _total_merges: int = 0
 var _games_played: int = 0
 var _language: String = ""
 var _skin_id: String = SkinCatalog.DEFAULT_SKIN_ID
+var _unlocked_skins: Array[String] = [SkinCatalog.DEFAULT_SKIN_ID]
 
 
 func _ready() -> void:
@@ -54,6 +57,7 @@ func _load() -> void:
 		_seen_powerups_mask = int(_config.get_value(SECTION_COLLECTION, KEY_SEEN_POWERUPS, 0))
 		_language = String(_config.get_value(SECTION_SETTINGS, KEY_LANGUAGE, ""))
 		_skin_id = String(_config.get_value(SECTION_SETTINGS, KEY_SKIN, SkinCatalog.DEFAULT_SKIN_ID))
+		_load_unlocked_skins(_config.get_value(SECTION_COLLECTION, KEY_UNLOCKED_SKINS, PackedStringArray([SkinCatalog.DEFAULT_SKIN_ID])))
 	else:
 		_high_score = 0
 		_frenzy_high_score = 0
@@ -63,8 +67,18 @@ func _load() -> void:
 		_discovered_mask = 1
 		_seen_powerups_mask = 0
 		_skin_id = SkinCatalog.DEFAULT_SKIN_ID
+		_unlocked_skins = [SkinCatalog.DEFAULT_SKIN_ID]
 	# The first fruit (Blueberry) is always known.
 	_discovered_mask |= 1
+
+
+func _load_unlocked_skins(raw_value: Variant) -> void:
+	_unlocked_skins = [SkinCatalog.DEFAULT_SKIN_ID]
+	if raw_value is PackedStringArray or raw_value is Array:
+		for item in raw_value:
+			var sid := String(item)
+			if not sid.is_empty() and not _unlocked_skins.has(sid):
+				_unlocked_skins.append(sid)
 
 
 func _save() -> void:
@@ -75,6 +89,7 @@ func _save() -> void:
 	_config.set_value(SECTION_AUDIO, KEY_SFX_ENABLED, _sfx_enabled)
 	_config.set_value(SECTION_COLLECTION, KEY_DISCOVERED, _discovered_mask)
 	_config.set_value(SECTION_COLLECTION, KEY_SEEN_POWERUPS, _seen_powerups_mask)
+	_config.set_value(SECTION_COLLECTION, KEY_UNLOCKED_SKINS, PackedStringArray(_unlocked_skins))
 	_config.set_value(SECTION_SETTINGS, KEY_LANGUAGE, _language)
 	_config.set_value(SECTION_SETTINGS, KEY_SKIN, _skin_id)
 	_config.save(SAVE_PATH)
@@ -116,6 +131,28 @@ func set_skin_id(skin_id: String) -> void:
 	if _skin_id == skin_id:
 		return
 	_skin_id = skin_id
+	_save()
+
+
+func is_skin_unlocked(skin_id: String) -> bool:
+	return _unlocked_skins.has(skin_id)
+
+
+func unlock_skin(skin_id: String) -> bool:
+	if skin_id.is_empty() or _unlocked_skins.has(skin_id):
+		return false
+	_unlocked_skins.append(skin_id)
+	_save()
+	skin_unlocked.emit(skin_id)
+	return true
+
+
+func get_unlocked_skins() -> PackedStringArray:
+	return PackedStringArray(_unlocked_skins)
+
+
+func set_unlocked_skins(skin_ids: PackedStringArray) -> void:
+	_load_unlocked_skins(skin_ids)
 	_save()
 
 

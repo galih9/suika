@@ -36,6 +36,7 @@ func _run_all() -> void:
 	await _test_frenzy_concrete_property()
 	await _test_frenzy_charged_property()
 	await _test_skin_system()
+	await _test_ad_manager_and_banner_layout()
 	await _test_localization_and_language_modal()
 	_test_splash_and_loading_config()
 
@@ -1001,12 +1002,71 @@ func _test_frenzy_charged_property() -> void:
 
 func _test_skin_system() -> void:
 	var prev_skin := FruitRegistry.active_skin_id
+	var prev_unlocked := SaveManager.get_unlocked_skins()
 	var catalog := FruitRegistry.catalog
 	var skins := FruitRegistry.skins
+
+	SaveManager.set_unlocked_skins(PackedStringArray(["classic"]))
+	FruitRegistry.set_skin("classic", false)
 
 	_assert(skins.get_count() == 3, "Expected 3 skins, got %d" % skins.get_count())
 	for sid in ["classic", "rotten", "livestock"]:
 		_assert(skins.has_skin(sid), "Missing skin '%s' in SkinCatalog" % sid)
+
+	_assert(FruitRegistry.is_skin_unlocked("classic"), "Classic skin must be unlocked by default")
+	_assert(not FruitRegistry.is_skin_unlocked("rotten"), "Rotten skin must start locked")
+	_assert(not FruitRegistry.is_skin_unlocked("livestock"), "Livestock skin must start locked")
+	_assert(not FruitRegistry.set_skin("rotten", true), "Equipping locked skin 'rotten' must fail")
+	_assert(FruitRegistry.active_skin_id == "classic", "Locked skin rejection must keep active_skin_id == 'classic'")
+
+	# SkinModal rewarded-ad unlock flow (skipped, failed, earned)
+	var modal := SkinModal.new()
+	add_child(modal)
+	await get_tree().process_frame
+	_assert(modal.get_card_count() == skins.get_count(), "SkinModal card count must match SkinCatalog count")
+	modal.open()
+	_assert(modal.is_open(), "SkinModal must report is_open() == true after open()")
+	await get_tree().process_frame
+
+	var rotten_entry := modal._find_card_entry("rotten")
+	var rotten_btn: Button = rotten_entry["button"]
+	var rotten_badge_lbl: Label = rotten_entry["badge_label"]
+	_assert(rotten_badge_lbl.text == Loc.t("skin.watch_ad"), "Locked skin card must show 'Watch Ad' badge")
+
+	AdManager.set_test_rewarded_handler(func(ctx: String) -> void:
+		AdManager.rewarded_ad_closed.emit(ctx, false)
+	)
+	rotten_btn.pressed.emit()
+	await get_tree().process_frame
+	_assert(not FruitRegistry.is_skin_unlocked("rotten"), "Skipped rewarded ad must keep 'rotten' locked")
+	_assert(modal._status_label.visible and modal._status_label.text == Loc.t("skin.ad_skipped"), "Skipped ad must show skip message")
+
+	AdManager.set_test_rewarded_handler(func(ctx: String) -> void:
+		AdManager.rewarded_ad_failed.emit(ctx, "no fill")
+	)
+	rotten_btn.pressed.emit()
+	await get_tree().process_frame
+	_assert(not FruitRegistry.is_skin_unlocked("rotten"), "Failed rewarded ad must keep 'rotten' locked")
+	_assert(modal._status_label.visible and modal._status_label.text == Loc.t("skin.ad_unavailable"), "Failed ad must show unavailable message")
+
+	AdManager.set_test_rewarded_handler(func(ctx: String) -> void:
+		AdManager.rewarded_ad_earned.emit(ctx)
+		AdManager.rewarded_ad_closed.emit(ctx, true)
+	)
+	rotten_btn.pressed.emit()
+	await get_tree().process_frame
+	_assert(FruitRegistry.is_skin_unlocked("rotten") and SaveManager.is_skin_unlocked("rotten"), "Completed rewarded ad must unlock 'rotten' in SaveManager")
+	_assert(FruitRegistry.active_skin_id == "rotten", "Unlocking via rewarded ad must equip 'rotten'")
+	_assert(rotten_badge_lbl.text == Loc.t("skin.equipped"), "Unlocked & equipped card must show 'Equipped' badge")
+	AdManager.set_test_rewarded_handler(Callable())
+
+	modal.close()
+	_assert(not modal.is_open(), "SkinModal must report is_open() == false after close()")
+	modal.queue_free()
+
+	# Unlock livestock for asset & live-refresh verification
+	FruitRegistry.unlock_skin("livestock")
+	_assert(FruitRegistry.is_skin_unlocked("livestock"), "unlock_skin('livestock') must unlock it")
 
 	# Verify every skin has all 15 AtlasTextures matching classic dimensions, 4x scale, and non-empty palettes
 	var classic_def := skins.get_skin("classic")
@@ -1057,22 +1117,48 @@ func _test_skin_system() -> void:
 	_assert(dropper_tex != null and dropper_tex.atlas != null and dropper_tex.atlas.resource_path == "res://assets/skins/livestock/suika_livestock_spritesheet.png", "Dropper sprite must live-update to livestock spritesheet")
 	board.queue_free()
 
-	# SkinModal instantiation, card count, open & close
-	var modal := SkinModal.new()
-	add_child(modal)
-	await get_tree().process_frame
-	_assert(modal.get_card_count() == skins.get_count(), "SkinModal card count must match SkinCatalog count")
-	modal.open()
-	_assert(modal.is_open(), "SkinModal must report is_open() == true after open()")
-	await get_tree().process_frame
-	modal.close()
-	_assert(not modal.is_open(), "SkinModal must report is_open() == false after close()")
-	modal.queue_free()
-
-	# Restore original skin preference
-	FruitRegistry.set_skin(prev_skin, true)
+	# Restore original unlocked skins and skin preference
+	SaveManager.set_unlocked_skins(prev_unlocked)
+	if FruitRegistry.is_skin_unlocked(prev_skin):
+		FruitRegistry.set_skin(prev_skin, true)
+	else:
+		FruitRegistry.set_skin(SkinCatalog.DEFAULT_SKIN_ID, true)
 	if SaveManager.get_skin_id() != prev_skin:
 		SaveManager.set_skin_id(prev_skin)
+
+
+func _test_ad_manager_and_banner_layout() -> void:
+	_assert(AdManager != null, "AdManager autoload must exist")
+	_assert(AdManager.process_mode == Node.PROCESS_MODE_ALWAYS, "AdManager must stay active while paused")
+	_assert(not AdManager.get_banner_ad_unit_id().is_empty(), "Banner ad unit ID must not be empty")
+	_assert(not AdManager.get_rewarded_ad_unit_id().is_empty(), "Rewarded ad unit ID must not be empty")
+
+	AdManager.set_simulated_banner_height_pixels(0)
+	var menu_scene := (ResourceLoader.load(SceneManager.MENU_SCENE) as PackedScene).instantiate()
+	var game_scene := (ResourceLoader.load(SceneManager.GAME_SCENE) as PackedScene).instantiate()
+	add_child(menu_scene)
+	add_child(game_scene)
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	var menu_top_0: int = menu_scene._safe_margin.get_theme_constant("margin_top")
+	var game_top_0: int = game_scene._top_margin.get_theme_constant("margin_top")
+	var hud_bottom_0: float = game_scene._top_hud_bottom
+	var board_y_0: float = game_scene._board.position.y
+
+	AdManager.set_simulated_banner_height_pixels(100)
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	_assert(menu_scene._safe_margin.get_theme_constant("margin_top") > menu_top_0, "Menu top margin must shift down when top banner is active")
+	_assert(game_scene._top_margin.get_theme_constant("margin_top") > game_top_0, "Game HUD top margin must shift down when top banner is active")
+	_assert(game_scene._top_hud_bottom > hud_bottom_0, "Game HUD bottom bound must expand for top banner")
+	_assert(game_scene._board.position.y > board_y_0, "GameBoard Y must shift down when top banner is active")
+
+	AdManager.set_simulated_banner_height_pixels(-1)
+	menu_scene.queue_free()
+	game_scene.queue_free()
+	await get_tree().process_frame
 
 
 func _test_localization_and_language_modal() -> void:

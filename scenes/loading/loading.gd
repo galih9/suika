@@ -30,6 +30,7 @@ var _hop_icons: Array[TextureRect] = []
 
 
 func _ready() -> void:
+	AdManager.hide_banner()
 	FruitRegistry.ensure_textures_ready()
 	UITheme.apply_to(self)
 	_apply_styles()

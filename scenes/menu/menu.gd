@@ -5,6 +5,7 @@ extends Control
 
 const SLOT_SIZE := 100.0
 
+@onready var _safe_margin: MarginContainer = %SafeMargin
 @onready var _column: VBoxContainer = %Column
 @onready var _top_bar: HBoxContainer = %TopBar
 @onready var _hero: VBoxContainer = %Hero
@@ -58,7 +59,11 @@ func _ready() -> void:
 
 	FruitRegistry.skin_changed.connect(_on_skin_changed)
 	Loc.language_changed.connect(_on_language_changed)
+	AdManager.banner_height_changed.connect(_update_safe_margins)
+	get_viewport().size_changed.connect(_update_safe_margins)
 
+	_update_safe_margins()
+	AdManager.show_banner()
 	_play_intro()
 
 
@@ -67,6 +72,24 @@ func _exit_tree() -> void:
 		Loc.language_changed.disconnect(_on_language_changed)
 	if FruitRegistry.skin_changed.is_connected(_on_skin_changed):
 		FruitRegistry.skin_changed.disconnect(_on_skin_changed)
+	if AdManager.banner_height_changed.is_connected(_update_safe_margins):
+		AdManager.banner_height_changed.disconnect(_update_safe_margins)
+	if is_inside_tree() and get_viewport().size_changed.is_connected(_update_safe_margins):
+		get_viewport().size_changed.disconnect(_update_safe_margins)
+
+
+func _update_safe_margins(_banner_px: int = 0) -> void:
+	if not is_inside_tree():
+		return
+	var vp := get_viewport()
+	var safe_top := UITheme.get_safe_top(vp)
+	var safe_bottom := UITheme.get_safe_bottom(vp)
+	var banner_top := AdManager.get_banner_height_in_viewport(vp)
+	var top_pad := 14.0 if banner_top > 0.0 else 28.0
+	var bottom_pad := 20.0 if banner_top > 0.0 else 36.0
+	_safe_margin.add_theme_constant_override("margin_top", int(roundf(safe_top + banner_top + top_pad)))
+	_safe_margin.add_theme_constant_override("margin_bottom", int(roundf(safe_bottom + bottom_pad)))
+	_column.add_theme_constant_override("separation", 12 if banner_top > 0.0 else 16)
 
 
 func _process(delta: float) -> void:

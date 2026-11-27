@@ -10,6 +10,8 @@ var sprite_path_format: String = ""
 var accent_color: Color = Color.WHITE
 var accent_shadow: Color = Color.GRAY
 var preview_levels: Array[int] = [0, 3, 6, 11, 14]
+var unlocked_by_default: bool = false
+var ads_required: int = 1
 
 
 func get_texture_path(level: int) -> String:

@@ -25,6 +25,8 @@ func _register_defaults() -> void:
 	classic.accent_color = UITheme.GREEN
 	classic.accent_shadow = UITheme.GREEN_SHADOW
 	classic.preview_levels = [0, 3, 6, 11, 14]
+	classic.unlocked_by_default = true
+	classic.ads_required = 0
 	register_skin(classic)
 
 	var rotten := SkinDefinition.new()
@@ -35,6 +37,8 @@ func _register_defaults() -> void:
 	rotten.accent_color = Color("#8CA852")
 	rotten.accent_shadow = Color("#5D7430")
 	rotten.preview_levels = [0, 3, 6, 11, 14]
+	rotten.unlocked_by_default = false
+	rotten.ads_required = 1
 	register_skin(rotten)
 
 	var livestock := SkinDefinition.new()
@@ -45,6 +49,8 @@ func _register_defaults() -> void:
 	livestock.accent_color = UITheme.ORANGE
 	livestock.accent_shadow = UITheme.ORANGE_SHADOW
 	livestock.preview_levels = [0, 3, 6, 11, 14]
+	livestock.unlocked_by_default = false
+	livestock.ads_required = 1
 	register_skin(livestock)
 
 

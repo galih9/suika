@@ -22,6 +22,7 @@ AudioManager="*res://scripts/autoload/audio_manager.gd"
 FruitRegistry="*res://scripts/autoload/fruit_registry.gd"
 SceneManager="*res://scripts/autoload/scene_manager.gd"
 Loc="*res://scripts/autoload/localization.gd"
+AdManager="*res://scripts/autoload/ad_manager.gd"
 
 [display]
 
